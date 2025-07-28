@@ -158,7 +158,13 @@ jobs:
           
           echo "📦 Installing backend dependencies..."
           cd backend
-          npm ci
+          if [ -f package-lock.json ]; then
+            echo "Installing all dependencies (including dev dependencies for build)..."
+            npm ci
+          else
+            echo "⚠️ package-lock.json not found, running npm install to generate it"
+            npm install
+          fi
           
           echo "📦 Building backend..."
           npm run build
@@ -167,9 +173,23 @@ jobs:
           rm -rf lambda-deploy
           mkdir lambda-deploy
           cp -r dist/* lambda-deploy/
-          cp package.json package-lock.json lambda-deploy/
+          
+          # Copy package.json and package-lock.json if it exists
+          cp package.json lambda-deploy/
+          if [ -f package-lock.json ]; then
+            cp package-lock.json lambda-deploy/
+          else
+            echo "⚠️ package-lock.json not found, will be generated during npm install"
+          fi
+          
           cd lambda-deploy
-          npm ci --only=production
+          if [ -f package-lock.json ]; then
+            echo "Installing production dependencies only..."
+            npm ci --omit=dev
+          else
+            echo "⚠️ package-lock.json not found, running npm install for production dependencies"
+            npm install --omit=dev
+          fi
           zip -r ../backend-deployment.zip .
           cd ..
           
@@ -211,7 +231,12 @@ jobs:
           EOF
           
           echo "📦 Installing frontend dependencies..."
-          npm ci
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            echo "⚠️ package-lock.json not found, running npm install to generate it"
+            npm install
+          fi
           
           echo "📦 Building frontend..."
           npm run build
