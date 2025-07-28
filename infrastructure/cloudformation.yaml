@@ -252,6 +252,96 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${QuizAPI}/*/GET/health'
 
+  # S3 Bucket for Frontend
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${Environment}-quiz-frontend-${AWS::AccountId}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: 'ai-practitioner-quiz'
+
+  # CloudFront Origin Access Control
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${Environment}-quiz-oac'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # CloudFront Distribution
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt FrontendBucket.RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+            OriginAccessControlId: !GetAtt OriginAccessControl.Id
+        Enabled: true
+        DefaultRootObject: index.html
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          ForwardedValues:
+            QueryString: false
+            Cookies:
+              Forward: none
+          MinTTL: 0
+          DefaultTTL: 86400
+          MaxTTL: 31536000
+          Compress: true
+        CustomErrorPages:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+        PriceClass: PriceClass_100
+        Tags:
+          - Key: Environment
+            Value: !Ref Environment
+          - Key: Application
+            Value: 'ai-practitioner-quiz'
+
+  # Bucket Policy for CloudFront
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Statement:
+          - Sid: AllowCloudFrontServicePrincipal
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${FrontendBucket}/*'
+            Condition:
+              StringEquals:
+                'AWS:SourceArn': !Sub 'arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}'
+
 Outputs:
   ApiUrl:
     Description: 'API Gateway Endpoint URL'
@@ -282,3 +372,45 @@ Outputs:
     Value: !Ref QuizAPIFunction
     Export:
       Name: !Sub '${Environment}-quiz-lambda-function'
+
+  S3BucketName:
+    Description: 'Frontend S3 Bucket Name'
+    Value: !Ref FrontendBucket
+    Export:
+      Name: !Sub '${Environment}-quiz-frontend-bucket'
+
+  CloudFrontDistributionId:
+    Description: 'CloudFront Distribution ID'
+    Value: !Ref CloudFrontDistribution
+    Export:
+      Name: !Sub '${Environment}-quiz-cloudfront-distribution'
+
+  CloudFrontDomainName:
+    Description: 'CloudFront Distribution Domain Name'
+    Value: !GetAtt CloudFrontDistribution.DomainName
+    Export:
+      Name: !Sub '${Environment}-quiz-cloudfront-domain'
+
+  WebsiteUrl:
+    Description: 'Frontend Website URL'
+    Value: !Sub 'https://${CloudFrontDistribution.DomainName}'
+    Export:
+      Name: !Sub '${Environment}-quiz-website-url'
+
+  CloudFrontDistributionId:
+    Description: 'CloudFront Distribution ID'
+    Value: !Ref CloudFrontDistribution
+    Export:
+      Name: !Sub '${Environment}-quiz-cloudfront-distribution-id'
+
+  CloudFrontDistributionDomain:
+    Description: 'CloudFront Distribution Domain Name'
+    Value: !GetAtt CloudFrontDistribution.DomainName
+    Export:
+      Name: !Sub '${Environment}-quiz-cloudfront-distribution-domain'
+
+  FrontendBucketName:
+    Description: 'S3 Bucket Name for Frontend'
+    Value: !Ref FrontendBucket
+    Export:
+      Name: !Sub '${Environment}-quiz-frontend-bucket'

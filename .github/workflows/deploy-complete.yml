@@ -241,18 +241,64 @@ jobs:
           echo "📦 Building frontend..."
           npm run build
           
-          # Create S3 bucket and deploy
-          echo "🪣 Creating S3 bucket..."
-          BUCKET_NAME="ai-quiz-frontend-${ENVIRONMENT}-$(date +%s)"
-          aws s3 mb s3://$BUCKET_NAME --region ${{ env.AWS_REGION }}
+          # Get S3 bucket name from infrastructure stack (CloudFormation managed)
+          BUCKET_NAME=$(aws cloudformation describe-stacks \
+            --stack-name $STACK_NAME \
+            --query 'Stacks[0].Outputs[?OutputKey==`S3BucketName`].OutputValue' \
+            --output text)
           
-          echo "🌐 Configuring bucket for website hosting..."
-          aws s3 website s3://$BUCKET_NAME --index-document index.html --error-document index.html
+          if [[ -z "$BUCKET_NAME" || "$BUCKET_NAME" == "None" ]]; then
+            echo "❌ Cannot find S3 bucket name from infrastructure stack"
+            echo "❌ Infrastructure deployment may have failed"
+            exit 1
+          fi
           
-          echo "🚀 Uploading frontend files..."
+          # Get CloudFront distribution domain
+          CLOUDFRONT_DOMAIN=$(aws cloudformation describe-stacks \
+            --stack-name $STACK_NAME \
+            --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDomainName`].OutputValue' \
+            --output text)
+          
+          echo "🔗 Using API URL: $API_URL"
+          echo "🪣 Using S3 Bucket: $BUCKET_NAME"
+          echo "🌐 CloudFront Domain: $CLOUDFRONT_DOMAIN"
+          
+          # Build frontend with environment configuration
+          cd frontend
+          echo "📝 Creating production environment file..."
+          cat > .env.production << EOF
+          VITE_API_URL=$API_URL
+          VITE_ENVIRONMENT=$ENVIRONMENT
+          EOF
+          
+          echo "📦 Installing frontend dependencies..."
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            echo "⚠️ package-lock.json not found, running npm install to generate it"
+            npm install
+          fi
+          
+          echo "📦 Building frontend..."
+          npm run build
+          
+          echo "🚀 Uploading frontend files to S3..."
           aws s3 sync dist/ s3://$BUCKET_NAME --delete
           
-          WEBSITE_URL="http://$BUCKET_NAME.s3-website-${{ env.AWS_REGION }}.amazonaws.com"
+          # Get CloudFront distribution ID for cache invalidation
+          DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+            --stack-name $STACK_NAME \
+            --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' \
+            --output text)
+          
+          if [[ -n "$DISTRIBUTION_ID" && "$DISTRIBUTION_ID" != "None" ]]; then
+            echo "🔄 Invalidating CloudFront cache..."
+            aws cloudfront create-invalidation \
+              --distribution-id $DISTRIBUTION_ID \
+              --paths "/*"
+          fi
+          
+          WEBSITE_URL="https://$CLOUDFRONT_DOMAIN"
           
           echo "✅ Deployment complete!"
           echo "🔗 API URL: $API_URL"
