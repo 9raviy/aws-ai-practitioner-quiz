@@ -68,6 +68,98 @@ const QuizQuestionComponent: React.FC = () => {
     return () => clearInterval(timer);
   }, [questionStartTime, showFeedback]);
 
+  // Helper function to format explanation text for better readability
+  const formatExplanation = (explanation: string) => {
+    // Try to split the explanation into main content and option explanations
+    const splitPatterns = [
+      /The other options are (suboptimal|incorrect) because:/i,
+      /Why the other options are wrong:/i,
+      /Other options are incorrect:/i
+    ];
+    
+    let parts: string[] = [explanation];
+    let splitIndex = -1;
+    
+    // Try each pattern to find where options explanations start
+    for (const pattern of splitPatterns) {
+      const tempParts = explanation.split(pattern);
+      if (tempParts.length > 1) {
+        parts = tempParts;
+        splitIndex = explanation.search(pattern);
+        break;
+      }
+    }
+
+    if (parts.length === 1) {
+      // No option explanations found, return as is but formatted nicely
+      return (
+        <Typography variant="body1" sx={{ lineHeight: 1.6, whiteSpace: 'pre-line' }}>
+          {explanation}
+        </Typography>
+      );
+    }
+
+    const mainExplanation = parts[0].trim();
+    const optionSection = parts[parts.length - 1]; // Get the last part (options)
+
+    // Extract individual option explanations using regex
+    const optionMatches = optionSection.match(/- Option [A-D]:[^-]+/gi) || [];
+    
+    return (
+      <Box>
+        {/* Main explanation */}
+        <Typography variant="body1" sx={{ lineHeight: 1.6, mb: 2, whiteSpace: 'pre-line' }}>
+          {mainExplanation}
+        </Typography>
+        
+        {/* Option explanations */}
+        {optionMatches.length > 0 && (
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="h6" sx={{ mb: 2, color: 'text.secondary', fontSize: '1.1rem' }}>
+              Why other options are incorrect:
+            </Typography>
+            {optionMatches.map((optionText, index) => {
+              // Extract option letter and explanation
+              const match = optionText.match(/- Option ([A-D]):\s*(.+)/i);
+              if (!match) return null;
+              
+              const optionLetter = match[1];
+              const explanation = match[2].trim();
+              
+              return (
+                <Box key={index} sx={{ 
+                  display: 'flex', 
+                  mb: 1.5, 
+                  alignItems: 'flex-start',
+                  gap: 1
+                }}>
+                  <Chip 
+                    label={`Option ${optionLetter}`}
+                    size="small"
+                    color="error"
+                    variant="outlined"
+                    sx={{ 
+                      minWidth: '80px',
+                      fontWeight: 'bold',
+                      fontSize: '0.75rem'
+                    }}
+                  />
+                  <Typography variant="body2" sx={{ 
+                    lineHeight: 1.5,
+                    flex: 1,
+                    pt: 0.5
+                  }}>
+                    {explanation}
+                  </Typography>
+                </Box>
+              );
+            })}
+          </Box>
+        )}
+      </Box>
+    );
+  };
+
   // Load question on component mount and question number change
   useEffect(() => {
     if (sessionId) {
@@ -327,9 +419,7 @@ const QuizQuestionComponent: React.FC = () => {
                   <Typography variant="h6" gutterBottom>
                     Explanation:
                   </Typography>
-                  <Typography variant="body1" sx={{ lineHeight: 1.6 }}>
-                    {feedback.explanation}
-                  </Typography>
+                  {formatExplanation(feedback.explanation)}
                 </Paper>
               )}
             </Box>
