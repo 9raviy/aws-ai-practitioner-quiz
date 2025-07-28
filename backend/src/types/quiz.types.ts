@@ -9,6 +9,7 @@ export interface QuizQuestion {
   difficulty: QuizDifficulty;
   topic: string;
   aiPractitionerDomain: string;
+  questionNumber?: number; // Position of the question in the quiz (1-based)
 }
 
 export enum QuizDifficulty {
@@ -53,19 +54,27 @@ export interface BedrockResponse {
 
 export interface QuizStartRequest {
   difficulty?: QuizDifficulty;
-  sessionId?: string;
+  userId?: string;
+  preferences?: {
+    domains?: string[];
+    timeLimit?: number;
+  };
 }
 
 export interface QuizStartResponse {
   sessionId: string;
-  firstQuestion: QuizQuestion;
   totalQuestions: number;
+  timeLimit: number;
+  firstQuestion: QuizQuestion & {
+    questionNumber: number;
+  };
 }
 
 export interface SubmitAnswerRequest {
   sessionId: string;
   questionId: string;
   selectedAnswer: number;
+  timeSpent?: number; // Time spent on the question in seconds
 }
 
 export interface SubmitAnswerResponse {
@@ -92,6 +101,12 @@ export interface QuizResults {
   difficulty: QuizDifficulty;
   breakdown: {
     [domain: string]: {
+      correct: number;
+      total: number;
+    };
+  };
+  difficultyBreakdown?: {
+    [key in QuizDifficulty]: {
       correct: number;
       total: number;
     };

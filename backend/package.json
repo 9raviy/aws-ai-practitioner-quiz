@@ -5,10 +5,12 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "dev": "nodemon src/index.ts",
-    "start": "node dist/index.js",
+    "dev": "nodemon src/app.ts",
+    "start": "node dist/app.js",
+    "server": "npx ts-node src/app.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "test:bedrock": "npx ts-node src/test-bedrock.ts",
+    "test:quick": "npx ts-node src/quick-test.ts",
     "verify:aws": "powershell -ExecutionPolicy Bypass -File verify-aws-setup.ps1",
     "lint": "eslint src/**/*.ts",
     "clean": "rm -rf dist"
@@ -25,14 +27,29 @@
   "license": "MIT",
   "dependencies": {
     "@aws-sdk/client-bedrock": "^3.848.0",
-    "@aws-sdk/client-bedrock-runtime": "^3.848.0"
+    "@aws-sdk/client-bedrock-runtime": "^3.848.0",
+    "@types/uuid": "^10.0.0",
+    "compression": "^1.8.1",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.0.1",
+    "helmet": "^8.1.0",
+    "uuid": "^11.1.0",
+    "winston": "^3.17.0"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.152",
+    "@types/compression": "^1.8.1",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/jest": "^30.0.0",
     "@types/node": "^24.1.0",
+    "@types/supertest": "^6.0.3",
     "eslint": "^9.32.0",
+    "jest": "^30.0.5",
     "nodemon": "^3.1.10",
     "prettier": "^3.6.2",
+    "supertest": "^7.1.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
   }
