@@ -12,9 +12,9 @@ export interface QuizQuestion {
 }
 
 export enum QuizDifficulty {
-  BEGINNER = 'beginner',
-  INTERMEDIATE = 'intermediate', 
-  ADVANCED = 'advanced'
+  BEGINNER = "beginner",
+  INTERMEDIATE = "intermediate",
+  ADVANCED = "advanced",
 }
 
 export interface QuizSession {

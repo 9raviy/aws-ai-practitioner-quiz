@@ -5,6 +5,7 @@
 ### Status: Awaiting backend completion
 
 This directory will contain the React.js frontend application with:
+
 - Quiz interface components
 - Progress tracking
 - Answer validation with visual feedback
@@ -12,8 +13,9 @@ This directory will contain the React.js frontend application with:
 - TypeScript throughout
 
 ## Features to Implement
+
 - ✅ Progressive quiz interface
-- ✅ Multiple choice with visual feedback  
+- ✅ Multiple choice with visual feedback
 - ✅ Green highlighting for correct answers
 - ✅ Red highlighting for incorrect answers
 - ✅ Explanation box for incorrect answers
@@ -21,6 +23,7 @@ This directory will contain the React.js frontend application with:
 - ✅ Responsive design
 
 ## Tech Stack
+
 - React 18+ with TypeScript
 - Tailwind CSS for styling
 - React Router for navigation
@@ -28,6 +31,7 @@ This directory will contain the React.js frontend application with:
 - React Query for state management
 
 ## Directory Structure (To be created)
+
 ```
 frontend/
 ├── src/
@@ -56,6 +60,7 @@ frontend/
 ```
 
 ## Getting Started (Phase 4)
+
 ```bash
 cd frontend
 npx create-react-app . --template typescript

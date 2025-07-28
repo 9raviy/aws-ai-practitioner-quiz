@@ -5,6 +5,7 @@
 ### Current Step: Ready to begin Step 1.1
 
 This directory will contain:
+
 - Lambda function handlers
 - Bedrock service integration
 - Quiz logic implementation
@@ -23,6 +24,7 @@ npm install --save-dev typescript @types/node ts-node nodemon eslint prettier
 ```
 
 ## Directory Structure (To be created)
+
 ```
 backend/
 ├── src/

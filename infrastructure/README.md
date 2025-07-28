@@ -7,6 +7,7 @@
 This directory contains all AWS infrastructure definitions:
 
 ## Components
+
 - **Lambda Functions**: Quiz API handlers
 - **API Gateway**: RESTful API endpoints
 - **DynamoDB**: Session and progress storage
@@ -15,6 +16,7 @@ This directory contains all AWS infrastructure definitions:
 - **CloudFront**: CDN distribution (Phase 5)
 
 ## Directory Structure (To be created)
+
 ```
 infrastructure/
 ├── cloudformation/
@@ -33,6 +35,7 @@ infrastructure/
 ## Resources Created
 
 ### Backend Stack (backend.yml)
+
 - AWS::Lambda::Function (Quiz API)
 - AWS::ApiGateway::RestApi
 - AWS::ApiGateway::Deployment
@@ -40,15 +43,18 @@ infrastructure/
 - AWS::IAM::Role (Lambda execution role)
 
 ### Database Stack (database.yml)
+
 - AWS::DynamoDB::Table (Quiz sessions)
 - AWS::DynamoDB::Table (User progress)
 
 ### Frontend Stack (frontend.yml)
+
 - AWS::S3::Bucket (Static website hosting)
 - AWS::CloudFront::Distribution
 - AWS::S3::BucketPolicy
 
 ## Deployment Commands (Phase 3)
+
 ```bash
 # Deploy backend infrastructure
 aws cloudformation deploy \

@@ -46,7 +46,7 @@ git push -u origin main
 ## Step 5: Add Repository Topics
 
 1. **Click the gear icon** next to "About" on main repository page
-2. **Add topics**: 
+2. **Add topics**:
    - `aws-bedrock`
    - `claude-3-5-sonnet`
    - `quiz-application`

@@ -1,7 +1,15 @@
-import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
-import { QuizQuestion, QuizDifficulty, BedrockRequest, BedrockResponse } from '../types/quiz.types';
-import { AWS_CONFIG, ERROR_CODES } from '../utils/constants';
-import { logger } from '../utils/logger';
+import {
+  BedrockRuntimeClient,
+  InvokeModelCommand,
+} from "@aws-sdk/client-bedrock-runtime";
+import {
+  QuizQuestion,
+  QuizDifficulty,
+  BedrockRequest,
+  BedrockResponse,
+} from "../types/quiz.types";
+import { AWS_CONFIG, ERROR_CODES } from "../utils/constants";
+import { logger } from "../utils/logger";
 
 export class BedrockService {
   private client: BedrockRuntimeClient;
@@ -9,10 +17,13 @@ export class BedrockService {
   private readonly region = AWS_CONFIG.REGION;
 
   constructor() {
-    this.client = new BedrockRuntimeClient({ 
-      region: this.region 
+    this.client = new BedrockRuntimeClient({
+      region: this.region,
     });
-    logger.info('BedrockService initialized', { region: this.region, modelId: this.modelId });
+    logger.info("BedrockService initialized", {
+      region: this.region,
+      modelId: this.modelId,
+    });
   }
 
   /**
@@ -20,55 +31,59 @@ export class BedrockService {
    */
   async generateQuestion(request: BedrockRequest): Promise<BedrockResponse> {
     const startTime = Date.now();
-    logger.info('Generating question', { difficulty: request.difficulty, topic: request.topic });
+    logger.info("Generating question", {
+      difficulty: request.difficulty,
+      topic: request.topic,
+    });
 
     try {
       const prompt = this.buildPrompt(request);
-      
+
       const input = {
         modelId: this.modelId,
-        contentType: 'application/json',
-        accept: 'application/json',
+        contentType: "application/json",
+        accept: "application/json",
         body: JSON.stringify({
-          anthropic_version: 'bedrock-2023-05-31',
+          anthropic_version: "bedrock-2023-05-31",
           max_tokens: AWS_CONFIG.MAX_TOKENS,
           messages: [
             {
-              role: 'user',
-              content: prompt
-            }
+              role: "user",
+              content: prompt,
+            },
           ],
           temperature: AWS_CONFIG.TEMPERATURE,
-          top_p: AWS_CONFIG.TOP_P
-        })
+          top_p: AWS_CONFIG.TOP_P,
+        }),
       };
 
       const command = new InvokeModelCommand(input);
       const response = await this.client.send(command);
-      
+
       const responseBody = JSON.parse(new TextDecoder().decode(response.body));
       const questionData = this.parseResponse(responseBody.content[0].text);
-      
+
       const generationTime = Date.now() - startTime;
-      logger.info('Question generated successfully', { 
-        questionId: questionData.id, 
-        generationTime, 
-        difficulty: questionData.difficulty 
+      logger.info("Question generated successfully", {
+        questionId: questionData.id,
+        generationTime,
+        difficulty: questionData.difficulty,
       });
 
       return {
         question: questionData,
         confidence: 0.95, // Claude generally produces high-quality responses
-        generationTime
+        generationTime,
       };
-
     } catch (error) {
       const generationTime = Date.now() - startTime;
-      logger.error('Error generating question with Bedrock', error, { 
-        difficulty: request.difficulty, 
-        generationTime 
+      logger.error("Error generating question with Bedrock", error, {
+        difficulty: request.difficulty,
+        generationTime,
       });
-      throw new Error(`${ERROR_CODES.BEDROCK_CONNECTION_FAILED}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `${ERROR_CODES.BEDROCK_CONNECTION_FAILED}: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     }
   }
 
@@ -88,7 +103,7 @@ Requirements:
 
 `;
 
-    let difficultyGuidance = '';
+    let difficultyGuidance = "";
     switch (request.difficulty) {
       case QuizDifficulty.BEGINNER:
         difficultyGuidance = `
@@ -129,15 +144,22 @@ Please respond in this exact JSON format:
 
 The correctAnswer should be the index (0-3) of the correct option in the options array.`;
 
-    const excludeInstructions = request.excludeQuestionIds && request.excludeQuestionIds.length > 0
-      ? `\nAvoid creating questions similar to these previously asked topics: ${request.excludeQuestionIds.join(', ')}`
-      : '';
+    const excludeInstructions =
+      request.excludeQuestionIds && request.excludeQuestionIds.length > 0
+        ? `\nAvoid creating questions similar to these previously asked topics: ${request.excludeQuestionIds.join(", ")}`
+        : "";
 
-    const topicFocus = request.topic 
+    const topicFocus = request.topic
       ? `\nFocus specifically on: ${request.topic}`
-      : '';
+      : "";
 
-    return basePrompt + difficultyGuidance + formatInstructions + excludeInstructions + topicFocus;
+    return (
+      basePrompt +
+      difficultyGuidance +
+      formatInstructions +
+      excludeInstructions +
+      topicFocus
+    );
   }
 
   /**
@@ -148,16 +170,22 @@ The correctAnswer should be the index (0-3) of the correct option in the options
       // Try to extract JSON from the response
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        throw new Error('No JSON found in response');
+        throw new Error("No JSON found in response");
       }
 
       const questionData = JSON.parse(jsonMatch[0]);
-      
+
       // Validate required fields
-      if (!questionData.question || !questionData.options || !Array.isArray(questionData.options) || 
-          questionData.options.length !== 4 || typeof questionData.correctAnswer !== 'number' ||
-          questionData.correctAnswer < 0 || questionData.correctAnswer > 3) {
-        throw new Error('Invalid question format received from Claude');
+      if (
+        !questionData.question ||
+        !questionData.options ||
+        !Array.isArray(questionData.options) ||
+        questionData.options.length !== 4 ||
+        typeof questionData.correctAnswer !== "number" ||
+        questionData.correctAnswer < 0 ||
+        questionData.correctAnswer > 3
+      ) {
+        throw new Error("Invalid question format received from Claude");
       }
 
       return {
@@ -165,15 +193,19 @@ The correctAnswer should be the index (0-3) of the correct option in the options
         question: questionData.question,
         options: questionData.options,
         correctAnswer: questionData.correctAnswer,
-        explanation: questionData.explanation || 'No explanation provided',
-        difficulty: this.mapToDifficulty(questionData.difficulty) || QuizDifficulty.INTERMEDIATE,
-        topic: questionData.topic || 'AWS AI Services',
-        aiPractitionerDomain: questionData.aiPractitionerDomain || 'AI Services'
+        explanation: questionData.explanation || "No explanation provided",
+        difficulty:
+          this.mapToDifficulty(questionData.difficulty) ||
+          QuizDifficulty.INTERMEDIATE,
+        topic: questionData.topic || "AWS AI Services",
+        aiPractitionerDomain:
+          questionData.aiPractitionerDomain || "AI Services",
       };
-
     } catch (error) {
-      console.error('Error parsing Claude response:', error);
-      throw new Error(`Failed to parse question response: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error("Error parsing Claude response:", error);
+      throw new Error(
+        `Failed to parse question response: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     }
   }
 
@@ -189,9 +221,9 @@ The correctAnswer should be the index (0-3) of the correct option in the options
    */
   private mapToDifficulty(difficulty: string): QuizDifficulty | undefined {
     const mapping: { [key: string]: QuizDifficulty } = {
-      'beginner': QuizDifficulty.BEGINNER,
-      'intermediate': QuizDifficulty.INTERMEDIATE,
-      'advanced': QuizDifficulty.ADVANCED
+      beginner: QuizDifficulty.BEGINNER,
+      intermediate: QuizDifficulty.INTERMEDIATE,
+      advanced: QuizDifficulty.ADVANCED,
     };
     return mapping[difficulty?.toLowerCase()];
   }
@@ -202,13 +234,13 @@ The correctAnswer should be the index (0-3) of the correct option in the options
   async testConnection(): Promise<boolean> {
     try {
       const testRequest: BedrockRequest = {
-        difficulty: QuizDifficulty.BEGINNER
+        difficulty: QuizDifficulty.BEGINNER,
       };
-      
+
       await this.generateQuestion(testRequest);
       return true;
     } catch (error) {
-      console.error('Bedrock connection test failed:', error);
+      console.error("Bedrock connection test failed:", error);
       return false;
     }
   }

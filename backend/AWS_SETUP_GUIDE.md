@@ -2,9 +2,10 @@
 
 ## 🎯 Current Status: Ready for AWS Configuration
 
-Phase 1.1 is **COMPLETED**! ✅ 
+Phase 1.1 is **COMPLETED**! ✅
+
 - ✅ Backend project initialized with TypeScript
-- ✅ AWS SDK v3 installed 
+- ✅ AWS SDK v3 installed
 - ✅ Project structure created
 - ✅ TypeScript compilation working
 
@@ -15,6 +16,7 @@ Phase 1.1 is **COMPLETED**! ✅
 **Download and install from**: https://aws.amazon.com/cli/
 
 Verify installation:
+
 ```powershell
 aws --version
 ```
@@ -29,7 +31,7 @@ aws configure
 
 # You'll be prompted for:
 # AWS Access Key ID: [Your access key]
-# AWS Secret Access Key: [Your secret key]  
+# AWS Secret Access Key: [Your secret key]
 # Default region name: us-west-2
 # Default output format: json
 ```
@@ -65,6 +67,7 @@ npm run dev
 ```
 
 Or test Bedrock directly:
+
 ```powershell
 node dist/test-bedrock.js
 ```
@@ -72,19 +75,23 @@ node dist/test-bedrock.js
 ## 🔧 Troubleshooting
 
 ### Issue: "AWS CLI not found"
+
 - Download and install AWS CLI from: https://aws.amazon.com/cli/
 - Restart your terminal after installation
 
 ### Issue: "Credentials not configured"
+
 - Run `aws configure` with your AWS access keys
 - Ensure your AWS account has Bedrock permissions
 
 ### Issue: "Model access denied"
+
 - Go to AWS Console → Bedrock → Model access
 - Enable Claude 3.5 Sonnet model access
 - Wait for approval (usually instant)
 
 ### Issue: "Region not supported"
+
 - Ensure you're using `us-west-2` region
 - Claude 3.5 Sonnet is only available in specific regions
 

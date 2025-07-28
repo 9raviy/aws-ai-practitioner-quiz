@@ -3,10 +3,10 @@
  */
 
 export enum LogLevel {
-  DEBUG = 'DEBUG',
-  INFO = 'INFO',
-  WARN = 'WARN',
-  ERROR = 'ERROR'
+  DEBUG = "DEBUG",
+  INFO = "INFO",
+  WARN = "WARN",
+  ERROR = "ERROR",
 }
 
 export class Logger {
@@ -27,18 +27,27 @@ export class Logger {
   }
 
   private shouldLog(level: LogLevel): boolean {
-    const levels = [LogLevel.DEBUG, LogLevel.INFO, LogLevel.WARN, LogLevel.ERROR];
+    const levels = [
+      LogLevel.DEBUG,
+      LogLevel.INFO,
+      LogLevel.WARN,
+      LogLevel.ERROR,
+    ];
     return levels.indexOf(level) >= levels.indexOf(this.logLevel);
   }
 
-  private formatMessage(level: LogLevel, message: string, metadata?: any): string {
+  private formatMessage(
+    level: LogLevel,
+    message: string,
+    metadata?: any
+  ): string {
     const timestamp = new Date().toISOString();
     const baseMessage = `[${timestamp}] [${level}] ${message}`;
-    
+
     if (metadata) {
       return `${baseMessage} ${JSON.stringify(metadata, null, 2)}`;
     }
-    
+
     return baseMessage;
   }
 
@@ -62,13 +71,21 @@ export class Logger {
 
   error(message: string, error?: Error | any, metadata?: any): void {
     if (this.shouldLog(LogLevel.ERROR)) {
-      const errorInfo = error instanceof Error ? {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
-      } : error;
-      
-      console.error(this.formatMessage(LogLevel.ERROR, message, { error: errorInfo, ...metadata }));
+      const errorInfo =
+        error instanceof Error
+          ? {
+              name: error.name,
+              message: error.message,
+              stack: error.stack,
+            }
+          : error;
+
+      console.error(
+        this.formatMessage(LogLevel.ERROR, message, {
+          error: errorInfo,
+          ...metadata,
+        })
+      );
     }
   }
 }
