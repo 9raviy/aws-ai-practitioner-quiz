@@ -10,6 +10,7 @@ import {
 import { QuizSession, UserAnswer, QuizQuestion } from '../types/quiz.types';
 import { logger } from '../utils/logger';
 
+// Force redeployment - 2025-07-28
 export class DynamoDBService {
   private client: DynamoDBDocumentClient;
   private tableName: string;
