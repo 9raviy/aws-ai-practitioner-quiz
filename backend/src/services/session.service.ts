@@ -165,8 +165,21 @@ export class SessionService {
         logger.warn("Cannot set current question - session not found", { sessionId });
       }
     } else {
-      // TODO: Add DynamoDB implementation when needed
-      throw new Error("DynamoDB setCurrentQuestion not implemented yet");
+      // DynamoDB implementation
+      try {
+        await this.dynamoDB.setCurrentQuestion(sessionId, question);
+        logger.info("Current question updated in DynamoDB", { 
+          sessionId, 
+          questionId: question.id 
+        });
+      } catch (error) {
+        logger.error("Failed to set current question in DynamoDB", { 
+          sessionId, 
+          questionId: question.id, 
+          error 
+        });
+        throw error;
+      }
     }
   }
 

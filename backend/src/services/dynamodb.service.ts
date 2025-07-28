@@ -43,6 +43,7 @@ export class DynamoDBService {
           endTime: session.endTime ? session.endTime.toISOString() : null,
           isCompleted: session.isCompleted,
           userId: session.userId || null,
+          currentQuestion: session.currentQuestion || null,
           ttl: Math.floor(Date.now() / 1000) + (24 * 60 * 60), // 24 hour TTL
         },
         ConditionExpression: 'attribute_not_exists(sessionId)', // Prevent overwrites
@@ -94,6 +95,7 @@ export class DynamoDBService {
         endTime: result.Item.endTime ? new Date(result.Item.endTime) : undefined,
         isCompleted: result.Item.isCompleted,
         userId: result.Item.userId || undefined,
+        currentQuestion: result.Item.currentQuestion || undefined,
       };
 
       logger.info('Session retrieved from DynamoDB', {
@@ -195,6 +197,38 @@ export class DynamoDBService {
     } catch (error) {
       logger.error('Failed to delete session from DynamoDB', error, { sessionId });
       throw new Error(`Failed to delete session: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Update the current question in a session
+   */
+  async setCurrentQuestion(sessionId: string, question: QuizQuestion): Promise<void> {
+    try {
+      const command = new UpdateCommand({
+        TableName: this.tableName,
+        Key: { sessionId },
+        UpdateExpression: 'SET currentQuestion = :question',
+        ExpressionAttributeValues: {
+          ':question': question,
+        },
+        ConditionExpression: 'attribute_exists(sessionId)', // Only update existing sessions
+      });
+
+      await this.client.send(command);
+      
+      logger.info('Current question updated in DynamoDB', { 
+        sessionId, 
+        questionId: question.id 
+      });
+      
+    } catch (error) {
+      logger.error('Failed to set current question in DynamoDB', { 
+        sessionId, 
+        questionId: question.id, 
+        error 
+      });
+      throw new Error(`Failed to set current question: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
