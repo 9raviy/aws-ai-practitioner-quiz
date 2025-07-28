@@ -14,61 +14,23 @@ on:
           - dev
           - staging
           - prod
-      deploy_infrastructure:
-        description: 'Deploy infrastructure'
-        required: false
-        default: true
-        type: boolean
-      deploy_backend:
-        description: 'Deploy backend'
-        required: false
-        default: true
-        type: boolean
-      deploy_frontend:
-        description: 'Deploy frontend'
-        required: false
-        default: true
-        type: boolean
 
 env:
   AWS_REGION: us-east-1
 
 jobs:
-  # Infrastructure deployment (runs first)
-  deploy-infrastructure:
-    if: github.event.inputs.deploy_infrastructure != 'false'
-    uses: ./.github/workflows/deploy-infrastructure.yml
-    with:
-      environment: ${{ github.event.inputs.environment || 'dev' }}
-    secrets: inherit
-
-  # Backend deployment (depends on infrastructure)
-  deploy-backend:
-    if: github.event.inputs.deploy_backend != 'false'
-    needs: deploy-infrastructure
-    uses: ./.github/workflows/deploy-backend.yml
-    with:
-      environment: ${{ github.event.inputs.environment || 'dev' }}
-    secrets: inherit
-
-  # Frontend deployment (depends on backend for API URL)
-  deploy-frontend:
-    if: github.event.inputs.deploy_frontend != 'false'
-    needs: [deploy-infrastructure, deploy-backend]
-    uses: ./.github/workflows/deploy-frontend.yml
-    with:
-      environment: ${{ github.event.inputs.environment || 'dev' }}
-    secrets: inherit
-
-  # End-to-end testing
-  e2e-test:
-    needs: [deploy-infrastructure, deploy-backend, deploy-frontend]
+  deploy-all:
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment || 'dev' }}
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -77,101 +39,84 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Get deployment URLs
-        id: get-urls
+      - name: Deploy Infrastructure
         run: |
           ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
           STACK_NAME="ai-quiz-${ENVIRONMENT}"
           
+          echo "🚀 Deploying infrastructure for environment: $ENVIRONMENT"
+          
+          cd infrastructure
+          aws cloudformation deploy \
+            --template-file cloudformation.yaml \
+            --stack-name $STACK_NAME \
+            --parameter-overrides Environment=$ENVIRONMENT \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --region ${{ env.AWS_REGION }} \
+            --no-fail-on-empty-changeset
+
+      - name: Deploy Backend
+        run: |
+          ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
+          STACK_NAME="ai-quiz-${ENVIRONMENT}"
+          
+          echo "🛠️ Deploying backend for environment: $ENVIRONMENT"
+          
+          # Get function name
+          FUNCTION_NAME=$(aws cloudformation describe-stacks \
+            --stack-name $STACK_NAME \
+            --query 'Stacks[0].Outputs[?OutputKey==`LambdaFunctionName`].OutputValue' \
+            --output text)
+          
+          # Build backend
+          cd backend
+          npm ci
+          npm run build
+          
+          # Create deployment package
+          rm -rf lambda-deploy
+          mkdir lambda-deploy
+          cp -r dist/* lambda-deploy/
+          cp package.json package-lock.json lambda-deploy/
+          cd lambda-deploy
+          npm ci --only=production
+          zip -r ../backend-deployment.zip .
+          cd ..
+          
+          # Deploy to Lambda
+          aws lambda update-function-code \
+            --function-name $FUNCTION_NAME \
+            --zip-file fileb://backend-deployment.zip
+
+      - name: Deploy Frontend
+        run: |
+          ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
+          STACK_NAME="ai-quiz-${ENVIRONMENT}"
+          
+          echo "🎨 Deploying frontend for environment: $ENVIRONMENT"
+          
+          # Get API URL
           API_URL=$(aws cloudformation describe-stacks \
             --stack-name $STACK_NAME \
             --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
             --output text)
           
-          echo "api-url=$API_URL" >> $GITHUB_OUTPUT
-
-      - name: Test API endpoints
-        run: |
-          API_URL=${{ steps.get-urls.outputs.api-url }}
-          
-          echo "Testing API endpoints..."
-          
-          # Test health endpoint
-          echo "Testing health endpoint..."
-          HEALTH_RESPONSE=$(curl -s -w "%{http_code}" -o /tmp/health.json $API_URL/api/v1/health)
-          
-          if [ "$HEALTH_RESPONSE" = "200" ]; then
-            echo "✅ Health endpoint working"
-            cat /tmp/health.json
-          else
-            echo "❌ Health endpoint failed (HTTP $HEALTH_RESPONSE)"
-            exit 1
-          fi
-          
-          # Test start quiz endpoint
-          echo "Testing start quiz endpoint..."
-          START_RESPONSE=$(curl -s -w "%{http_code}" -o /tmp/start.json \
-            -X POST \
-            -H "Content-Type: application/json" \
-            -d '{"difficulty":"beginner"}' \
-            $API_URL/api/v1/quiz/start)
-          
-          if [ "$START_RESPONSE" = "201" ]; then
-            echo "✅ Start quiz endpoint working"
-            cat /tmp/start.json
-          else
-            echo "❌ Start quiz endpoint failed (HTTP $START_RESPONSE)"
-            cat /tmp/start.json
-          fi
-
-      - name: Performance test
-        run: |
-          API_URL=${{ steps.get-urls.outputs.api-url }}
-          
-          echo "Running basic performance test..."
-          
-          # Test response time for health endpoint
-          for i in {1..5}; do
-            TIME=$(curl -s -w "%{time_total}" -o /dev/null $API_URL/api/v1/health)
-            echo "Request $i: ${TIME}s"
-          done
-
-      - name: Create deployment summary
-        run: |
-          ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
-          API_URL=${{ steps.get-urls.outputs.api-url }}
-          
-          cat > deployment-summary.md << EOF
-          # 🚀 Deployment Summary - $ENVIRONMENT
-          
-          **Deployed on**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
-          **Environment**: $ENVIRONMENT
-          **Region**: ${{ env.AWS_REGION }}
-          **Commit**: ${{ github.sha }}
-          
-          ## 🔗 URLs
-          - **API Base URL**: $API_URL
-          - **Health Check**: $API_URL/api/v1/health
-          
-          ## ✅ Tests Passed
-          - Infrastructure deployment
-          - Backend Lambda deployment
-          - Frontend S3 deployment
-          - API health check
-          - Basic performance test
-          
-          ## 🛠️ Next Steps
-          1. Test the complete quiz flow
-          2. Monitor application performance
-          3. Check AWS CloudWatch logs if needed
-          
+          # Build frontend
+          cd frontend
+          cat > .env.production << EOF
+          VITE_API_URL=$API_URL
+          VITE_ENVIRONMENT=$ENVIRONMENT
           EOF
           
-          cat deployment-summary.md
-
-      - name: Upload deployment summary
-        uses: actions/upload-artifact@v4
-        with:
-          name: deployment-summary-${{ github.event.inputs.environment || 'dev' }}
-          path: deployment-summary.md
-          retention-days: 30
+          npm ci
+          npm run build
+          
+          # Create S3 bucket and deploy
+          BUCKET_NAME="ai-quiz-frontend-${ENVIRONMENT}-$(date +%s)"
+          aws s3 mb s3://$BUCKET_NAME --region ${{ env.AWS_REGION }}
+          aws s3 website s3://$BUCKET_NAME --index-document index.html --error-document index.html
+          aws s3 sync dist/ s3://$BUCKET_NAME --delete
+          
+          echo "✅ Deployment complete!"
+          echo "API URL: $API_URL"
+          echo "Website URL: http://$BUCKET_NAME.s3-website-${{ env.AWS_REGION }}.amazonaws.com"

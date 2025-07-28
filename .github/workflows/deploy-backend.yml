@@ -17,6 +17,13 @@ on:
           - dev
           - staging
           - prod
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: false
+        default: 'dev'
+        type: string
 
 env:
   AWS_REGION: us-east-1
@@ -25,7 +32,7 @@ env:
 jobs:
   deploy-backend:
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment || 'dev' }}
+    environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
     
     steps:
       - name: Checkout code
@@ -63,7 +70,7 @@ jobs:
       - name: Get Lambda function name from stack
         id: get-function-name
         run: |
-          ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
+          ENVIRONMENT=${{ inputs.environment || github.event.inputs.environment || 'dev' }}
           STACK_NAME="ai-quiz-${ENVIRONMENT}"
           
           FUNCTION_NAME=$(aws cloudformation describe-stacks \
@@ -139,6 +146,6 @@ jobs:
       - name: Upload test results
         uses: actions/upload-artifact@v4
         with:
-          name: lambda-test-results-${{ github.event.inputs.environment || 'dev' }}
+          name: lambda-test-results-${{ inputs.environment || github.event.inputs.environment || 'dev' }}
           path: backend/test-response.json
           retention-days: 7

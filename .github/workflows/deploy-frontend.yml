@@ -17,6 +17,13 @@ on:
           - dev
           - staging
           - prod
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: false
+        default: 'dev'
+        type: string
 
 env:
   AWS_REGION: us-east-1
@@ -25,7 +32,7 @@ env:
 jobs:
   deploy-frontend:
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment || 'dev' }}
+    environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
     
     steps:
       - name: Checkout code
@@ -48,7 +55,7 @@ jobs:
       - name: Get API Gateway URL from stack
         id: get-api-url
         run: |
-          ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
+          ENVIRONMENT=${{ inputs.environment || github.event.inputs.environment || 'dev' }}
           STACK_NAME="ai-quiz-${ENVIRONMENT}"
           
           API_URL=$(aws cloudformation describe-stacks \
@@ -63,7 +70,7 @@ jobs:
           cd frontend
           cat > .env.production << EOF
           VITE_API_URL=${{ steps.get-api-url.outputs.api-url }}
-          VITE_ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
+          VITE_ENVIRONMENT=${{ inputs.environment || github.event.inputs.environment || 'dev' }}
           EOF
 
       - name: Install frontend dependencies
@@ -84,7 +91,7 @@ jobs:
       - name: Get S3 bucket name from stack
         id: get-bucket
         run: |
-          ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
+          ENVIRONMENT=${{ inputs.environment || github.event.inputs.environment || 'dev' }}
           STACK_NAME="ai-quiz-${ENVIRONMENT}"
           
           # Check if S3 bucket output exists (we may need to add this to CloudFormation)
@@ -95,7 +102,7 @@ jobs:
           
           if [ -z "$BUCKET_NAME" ]; then
             # Create a bucket name if not in outputs
-            BUCKET_NAME="ai-quiz-frontend-${{ github.event.inputs.environment || 'dev' }}-$(date +%s)"
+            BUCKET_NAME="ai-quiz-frontend-${{ inputs.environment || github.event.inputs.environment || 'dev' }}-$(date +%s)"
             echo "Creating new S3 bucket: $BUCKET_NAME"
             
             # Create S3 bucket
@@ -147,7 +154,7 @@ jobs:
 
       - name: Invalidate CloudFront (if exists)
         run: |
-          ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
+          ENVIRONMENT=${{ inputs.environment || github.event.inputs.environment || 'dev' }}
           STACK_NAME="ai-quiz-${ENVIRONMENT}"
           
           # Check if CloudFront distribution exists

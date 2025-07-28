@@ -16,6 +16,13 @@ on:
           - dev
           - staging
           - prod
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: false
+        default: 'dev'
+        type: string
 
 env:
   AWS_REGION: us-east-1
@@ -23,7 +30,7 @@ env:
 jobs:
   deploy-infrastructure:
     runs-on: ubuntu-latest
-    environment: ${{ github.event.inputs.environment || 'dev' }}
+    environment: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
     
     steps:
       - name: Checkout code
@@ -43,7 +50,7 @@ jobs:
 
       - name: Deploy CloudFormation stack
         run: |
-          ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
+          ENVIRONMENT=${{ inputs.environment || github.event.inputs.environment || 'dev' }}
           STACK_NAME="ai-quiz-${ENVIRONMENT}"
           
           aws cloudformation deploy \
@@ -57,7 +64,7 @@ jobs:
       - name: Get stack outputs
         id: stack-outputs
         run: |
-          ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
+          ENVIRONMENT=${{ inputs.environment || github.event.inputs.environment || 'dev' }}
           STACK_NAME="ai-quiz-${ENVIRONMENT}"
           
           # Get API Gateway URL
@@ -84,7 +91,7 @@ jobs:
 
       - name: Save deployment info
         run: |
-          ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
+          ENVIRONMENT=${{ inputs.environment || github.event.inputs.environment || 'dev' }}
           mkdir -p deployment-info
           cat > deployment-info/$ENVIRONMENT.json << EOF
           {
@@ -100,6 +107,6 @@ jobs:
       - name: Upload deployment info
         uses: actions/upload-artifact@v4
         with:
-          name: deployment-info-${{ github.event.inputs.environment || 'dev' }}
+          name: deployment-info-${{ inputs.environment || github.event.inputs.environment || 'dev' }}
           path: deployment-info/
           retention-days: 30
