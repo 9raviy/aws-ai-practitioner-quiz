@@ -29,6 +29,7 @@ export interface QuizSession {
   startTime: Date;
   endTime?: Date;
   isCompleted: boolean;
+  userId?: string; // Optional user identifier
 }
 
 export interface UserAnswer {

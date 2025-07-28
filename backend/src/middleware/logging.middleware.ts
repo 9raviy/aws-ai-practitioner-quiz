@@ -49,10 +49,10 @@ export const requestLogger = (req: Request, res: Response, next: NextFunction) =
   next();
 };
 
-export const validateJSON = (req: Request, res: Response, next: NextFunction) => {
+export const validateJSON = (req: Request, res: Response, next: NextFunction): void => {
   if (req.method === "POST" || req.method === "PUT" || req.method === "PATCH") {
     if (req.is("application/json") && Object.keys(req.body).length === 0) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: {
           code: "INVALID_JSON",
@@ -60,6 +60,7 @@ export const validateJSON = (req: Request, res: Response, next: NextFunction) =>
         },
         timestamp: new Date().toISOString(),
       });
+      return;
     }
   }
   next();

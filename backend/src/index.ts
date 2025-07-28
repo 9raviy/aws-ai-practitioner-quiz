@@ -1,16 +1,11 @@
-import { BedrockService } from "./services/bedrock.service";
-import { testBedrockConnection } from "./test-bedrock";
+// Lambda handlers export
+export { handler as apiHandler } from './handlers/api.handler';
+export { healthHandler } from './handlers/health.handler';
 
-/**
- * Main entry point for the AWS AI Quiz Backend
- */
-console.log("🚀 AWS AI Practitioner Quiz Backend Starting...");
+// Express app export (for local development)
+export { default as app } from './app';
 
-// For now, we'll just export our services and run a basic test
-export { BedrockService };
-
-// Run test if in development mode
-if (process.env.NODE_ENV !== "production") {
-  console.log("🧪 Running in development mode - testing Bedrock connection...");
-  testBedrockConnection().catch(console.error);
-}
+// Services export
+export { BedrockService } from "./services/bedrock.service";
+export { QuizService } from "./services/quiz.service";
+export { SessionService } from "./services/session.service";

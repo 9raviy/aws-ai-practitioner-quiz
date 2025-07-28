@@ -1,0 +1,278 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS Infrastructure for AI Practitioner Quiz Application'
+
+Parameters:
+  Environment:
+    Type: String
+    Default: 'dev'
+    AllowedValues: ['dev', 'staging', 'prod']
+    Description: 'Environment name'
+  
+  BedrockRegion:
+    Type: String
+    Default: 'us-west-2'
+    Description: 'AWS region for Bedrock service'
+
+Resources:
+  # DynamoDB Table for Quiz Sessions
+  QuizSessionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${Environment}-quiz-sessions'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: sessionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: sessionId
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: 'ai-practitioner-quiz'
+
+  # IAM Role for Lambda Functions
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Environment}-quiz-lambda-execution-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Scan
+                  - dynamodb:Query
+                Resource: !GetAtt QuizSessionsTable.Arn
+        - PolicyName: BedrockAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource: !Sub 'arn:aws:bedrock:${BedrockRegion}::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0'
+
+  # Lambda Function for Main API
+  QuizAPIFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${Environment}-quiz-api'
+      Runtime: nodejs20.x
+      Handler: index.apiHandler
+      Code:
+        ZipFile: |
+          exports.apiHandler = async (event) => {
+            return {
+              statusCode: 200,
+              body: JSON.stringify({ message: 'Placeholder - will be updated during deployment' })
+            };
+          };
+      Environment:
+        Variables:
+          NODE_ENV: !Ref Environment
+          DYNAMODB_TABLE_NAME: !Ref QuizSessionsTable
+          AWS_REGION: !Ref BedrockRegion
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 30
+      MemorySize: 512
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: 'ai-practitioner-quiz'
+
+  # Lambda Function for Health Check
+  HealthCheckFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${Environment}-quiz-health'
+      Runtime: nodejs20.x
+      Handler: index.healthHandler
+      Code:
+        ZipFile: |
+          exports.healthHandler = async (event) => {
+            return {
+              statusCode: 200,
+              body: JSON.stringify({ 
+                status: 'healthy',
+                timestamp: new Date().toISOString()
+              })
+            };
+          };
+      Environment:
+        Variables:
+          NODE_ENV: !Ref Environment
+          DYNAMODB_TABLE_NAME: !Ref QuizSessionsTable
+          AWS_REGION: !Ref BedrockRegion
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 10
+      MemorySize: 256
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: 'ai-practitioner-quiz'
+
+  # API Gateway Rest API
+  QuizAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub '${Environment}-quiz-api'
+      Description: 'API for AWS AI Practitioner Quiz Application'
+      EndpointConfiguration:
+        Types:
+          - REGIONAL
+      BinaryMediaTypes:
+        - '*/*'
+
+  # API Gateway Deployment
+  APIDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - ProxyMethodANY
+      - HealthMethodGET
+    Properties:
+      RestApiId: !Ref QuizAPI
+      StageName: !Ref Environment
+
+  # API Gateway Resource for Health Check
+  HealthResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref QuizAPI
+      ParentId: !GetAtt QuizAPI.RootResourceId
+      PathPart: health
+
+  # API Gateway Method for Health Check
+  HealthMethodGET:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref QuizAPI
+      ResourceId: !Ref HealthResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HealthCheckFunction.Arn}/invocations'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseHeaders:
+            Access-Control-Allow-Origin: true
+
+  # API Gateway Resource for Proxy (catch-all)
+  ProxyResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref QuizAPI
+      ParentId: !GetAtt QuizAPI.RootResourceId
+      PathPart: '{proxy+}'
+
+  # API Gateway Method for Proxy
+  ProxyMethodANY:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref QuizAPI
+      ResourceId: !Ref ProxyResource
+      HttpMethod: ANY
+      AuthorizationType: NONE
+      RequestParameters:
+        method.request.path.proxy: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${QuizAPIFunction.Arn}/invocations'
+        RequestParameters:
+          integration.request.path.proxy: method.request.path.proxy
+
+  # CORS for API Gateway
+  OptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref QuizAPI
+      ResourceId: !Ref ProxyResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: false
+            method.response.header.Access-Control-Allow-Methods: false
+            method.response.header.Access-Control-Allow-Origin: false
+
+  # Lambda Permissions for API Gateway
+  APILambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref QuizAPIFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${QuizAPI}/*/*'
+
+  HealthLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref HealthCheckFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${QuizAPI}/*/GET/health'
+
+Outputs:
+  APIEndpoint:
+    Description: 'API Gateway Endpoint URL'
+    Value: !Sub 'https://${QuizAPI}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+    Export:
+      Name: !Sub '${Environment}-quiz-api-endpoint'
+
+  HealthEndpoint:
+    Description: 'Health Check Endpoint URL'
+    Value: !Sub 'https://${QuizAPI}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/health'
+    Export:
+      Name: !Sub '${Environment}-quiz-health-endpoint'
+
+  DynamoDBTableName:
+    Description: 'DynamoDB Table Name'
+    Value: !Ref QuizSessionsTable
+    Export:
+      Name: !Sub '${Environment}-quiz-sessions-table'
+
+  LambdaFunctionName:
+    Description: 'Main Lambda Function Name'
+    Value: !Ref QuizAPIFunction
+    Export:
+      Name: !Sub '${Environment}-quiz-lambda-function'

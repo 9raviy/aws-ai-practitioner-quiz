@@ -6,27 +6,14 @@ import {
 } from "../types/quiz.types";
 import { logger } from "../utils/logger";
 import { QUIZ_CONFIG } from "../utils/constants";
-import { DynamoDBService } from "./dynamodb.service";
 
 export class SessionService {
-  private dynamoDB: DynamoDBService;
-  private useInMemory: boolean;
-  private sessions: Map<string, QuizSession> = new Map(); // Fallback for local development
-
-  constructor() {
-    this.dynamoDB = new DynamoDBService();
-    // Use in-memory storage for local development, DynamoDB for production
-    this.useInMemory = process.env.NODE_ENV === 'development' || !process.env.DYNAMODB_TABLE_NAME;
-    
-    if (this.useInMemory) {
-      logger.warn("Using in-memory session storage - not suitable for production");
-    }
-  }
+  private sessions: Map<string, QuizSession> = new Map();
 
   /**
    * Create a new quiz session
    */
-  async createSession(difficulty: QuizDifficulty, userId?: string): Promise<QuizSession> {
+  createSession(difficulty: QuizDifficulty, userId?: string): QuizSession {
     const sessionId = this.generateSessionId();
     
     const session: QuizSession = {
@@ -39,21 +26,15 @@ export class SessionService {
       difficulty,
       startTime: new Date(),
       isCompleted: false,
-      userId,
     };
 
-    if (this.useInMemory) {
-      this.sessions.set(sessionId, session);
-    } else {
-      await this.dynamoDB.createSession(session);
-    }
+    this.sessions.set(sessionId, session);
     
     logger.info("New session created", {
       sessionId,
       difficulty,
       userId,
       totalQuestions: session.totalQuestions,
-      storage: this.useInMemory ? 'memory' : 'dynamodb',
     });
 
     return session;
@@ -63,17 +44,13 @@ export class SessionService {
    * Get session by ID
    */
   async getSession(sessionId: string): Promise<QuizSession | null> {
-    let session: QuizSession | null = null;
+    const session = this.sessions.get(sessionId);
     
-    if (this.useInMemory) {
-      session = this.sessions.get(sessionId) || null;
-      if (!session) {
-        logger.warn("Session not found in memory", { sessionId });
-      }
-    } else {
-      session = await this.dynamoDB.getSession(sessionId);
+    if (!session) {
+      logger.warn("Session not found", { sessionId });
+      return null;
     }
-    
+
     return session;
   }
 
@@ -85,21 +62,6 @@ export class SessionService {
     answer: UserAnswer, 
     currentQuestion: QuizQuestion
   ): Promise<QuizSession | null> {
-    if (this.useInMemory) {
-      return this.updateSessionInMemory(sessionId, answer, currentQuestion);
-    } else {
-      return this.dynamoDB.updateSession(sessionId, answer, currentQuestion);
-    }
-  }
-
-  /**
-   * In-memory session update (for local development)
-   */
-  private updateSessionInMemory(
-    sessionId: string, 
-    answer: UserAnswer, 
-    currentQuestion: QuizQuestion
-  ): QuizSession | null {
     const session = this.sessions.get(sessionId);
     
     if (!session) {
@@ -129,7 +91,7 @@ export class SessionService {
 
     this.sessions.set(sessionId, session);
     
-    logger.info("Session updated in memory", {
+    logger.info("Session updated", {
       sessionId,
       currentQuestionIndex: session.currentQuestionIndex,
       correctAnswers: session.correctAnswers,
@@ -201,13 +163,8 @@ export class SessionService {
 
   /**
    * Clean up expired sessions (for memory management)
-   * Only applies to in-memory storage - DynamoDB uses TTL
    */
   cleanupExpiredSessions(): void {
-    if (!this.useInMemory) {
-      return; // DynamoDB handles TTL automatically
-    }
-    
     const now = new Date();
     const expiredSessions: string[] = [];
     
@@ -236,37 +193,16 @@ export class SessionService {
   /**
    * Get session statistics
    */
-  async getSessionStats() {
-    if (this.useInMemory) {
-      return {
-        activeSessions: this.sessions.size,
-        storage: 'memory',
-        sessions: Array.from(this.sessions.values()).map(session => ({
-          sessionId: session.sessionId,
-          progress: `${session.currentQuestionIndex}/${session.totalQuestions}`,
-          score: session.score,
-          isCompleted: session.isCompleted,
-          startTime: session.startTime,
-        })),
-      };
-    } else {
-      const stats = await this.dynamoDB.getSessionStats();
-      return {
-        ...stats,
-        storage: 'dynamodb',
-      };
-    }
-  }
-
-  /**
-   * Delete a session
-   */
-  async deleteSession(sessionId: string): Promise<void> {
-    if (this.useInMemory) {
-      this.sessions.delete(sessionId);
-      logger.info("Session deleted from memory", { sessionId });
-    } else {
-      await this.dynamoDB.deleteSession(sessionId);
-    }
+  getSessionStats() {
+    return {
+      activeSessions: this.sessions.size,
+      sessions: Array.from(this.sessions.values()).map(session => ({
+        sessionId: session.sessionId,
+        progress: `${session.currentQuestionIndex}/${session.totalQuestions}`,
+        score: session.score,
+        isCompleted: session.isCompleted,
+        startTime: session.startTime,
+      })),
+    };
   }
 }

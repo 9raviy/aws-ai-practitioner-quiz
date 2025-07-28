@@ -26,7 +26,7 @@ export class QuizService {
   async startQuizSession(request: QuizStartRequest): Promise<QuizStartResponse> {
     try {
       // Create new session
-      const session = this.sessionService.createSession(
+      const session = await this.sessionService.createSession(
         request.difficulty || QuizDifficulty.BEGINNER,
         request.userId
       );
