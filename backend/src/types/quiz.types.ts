@@ -99,20 +99,19 @@ export interface QuizResults {
   totalQuestions: number;
   correctAnswers: number;
   score: number; // percentage
-  timeSpent: number; // total time in seconds
+  accuracy: number; // percentage with decimal places
+  totalTime: number; // total time in seconds
+  averageTimePerQuestion: number; // average time per question in seconds
   difficulty: QuizDifficulty;
-  breakdown: {
+  topicBreakdown: {
     [domain: string]: {
       correct: number;
       total: number;
+      accuracy: number;
     };
   };
-  difficultyBreakdown?: {
-    [key in QuizDifficulty]: {
-      correct: number;
-      total: number;
-    };
-  };
+  recommendedNextLevel?: QuizDifficulty;
+  feedback: string;
 }
 
 export interface APIResponse<T = any> {

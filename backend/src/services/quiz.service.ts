@@ -359,42 +359,56 @@ export class QuizService {
       ? session.endTime.getTime() - session.startTime.getTime()
       : Date.now() - session.startTime.getTime();
 
+    const totalTimeSeconds = Math.floor(totalTime / 1000);
+    const accuracy = session.totalQuestions > 0 ? (session.correctAnswers / session.totalQuestions) * 100 : 0;
+    const averageTimePerQuestion = session.totalQuestions > 0 ? totalTimeSeconds / session.totalQuestions : 0;
+
     // Calculate domain breakdown (simplified for now)
-    const domainBreakdown = Object.values(AI_PRACTITIONER_DOMAINS).reduce((acc, domain) => {
+    const topicBreakdown = Object.values(AI_PRACTITIONER_DOMAINS).reduce((acc, domain) => {
+      const correct = Math.floor(session.correctAnswers / 4); // Simplified distribution
+      const total = Math.floor(session.totalQuestions / 4);
+      const domainAccuracy = total > 0 ? (correct / total) * 100 : 0;
+      
       acc[domain] = {
-        correct: Math.floor(session.correctAnswers / 4), // Simplified distribution
-        total: Math.floor(session.totalQuestions / 4),
+        correct,
+        total,
+        accuracy: Number(domainAccuracy.toFixed(1)),
       };
       return acc;
     }, {} as any);
 
-    // Calculate difficulty breakdown (simplified for now)
-    const difficultyBreakdown = {
-      [QuizDifficulty.BEGINNER]: { 
-        correct: Math.floor(session.correctAnswers * 0.4), 
-        total: QUIZ_CONFIG.DIFFICULTY_PROGRESSION.BEGINNER_RANGE[1] 
-      },
-      [QuizDifficulty.INTERMEDIATE]: { 
-        correct: Math.floor(session.correctAnswers * 0.4), 
-        total: QUIZ_CONFIG.DIFFICULTY_PROGRESSION.INTERMEDIATE_RANGE[1] - 
-               QUIZ_CONFIG.DIFFICULTY_PROGRESSION.INTERMEDIATE_RANGE[0] + 1
-      },
-      [QuizDifficulty.ADVANCED]: { 
-        correct: Math.floor(session.correctAnswers * 0.2), 
-        total: QUIZ_CONFIG.DIFFICULTY_PROGRESSION.ADVANCED_RANGE[1] - 
-               QUIZ_CONFIG.DIFFICULTY_PROGRESSION.ADVANCED_RANGE[0] + 1
-      },
-    };
+    // Generate feedback based on performance
+    let feedback = "";
+    if (accuracy >= 80) {
+      feedback = "Excellent work! You demonstrate strong knowledge of AWS AI/ML services. Consider advancing to the next difficulty level.";
+    } else if (accuracy >= 60) {
+      feedback = "Good job! You have a solid foundation. Review the topics you missed to strengthen your understanding.";
+    } else if (accuracy >= 40) {
+      feedback = "You're on the right track! Focus on studying the key AWS AI/ML concepts and services to improve your score.";
+    } else {
+      feedback = "Keep learning! Review the AWS AI Practitioner fundamentals and practice more to build your knowledge.";
+    }
+
+    // Recommend next level
+    let recommendedNextLevel: QuizDifficulty | undefined;
+    if (session.difficulty === QuizDifficulty.BEGINNER && accuracy >= 75) {
+      recommendedNextLevel = QuizDifficulty.INTERMEDIATE;
+    } else if (session.difficulty === QuizDifficulty.INTERMEDIATE && accuracy >= 80) {
+      recommendedNextLevel = QuizDifficulty.ADVANCED;
+    }
 
     return {
       sessionId: session.sessionId,
       totalQuestions: session.totalQuestions,
       correctAnswers: session.correctAnswers,
       score: session.score,
-      timeSpent: Math.floor(totalTime / 1000), // Convert to seconds
+      accuracy: Number(accuracy.toFixed(1)),
+      totalTime: totalTimeSeconds,
+      averageTimePerQuestion: Number(averageTimePerQuestion.toFixed(1)),
       difficulty: session.difficulty,
-      breakdown: domainBreakdown,
-      difficultyBreakdown,
+      topicBreakdown,
+      recommendedNextLevel,
+      feedback,
     };
   }
 
