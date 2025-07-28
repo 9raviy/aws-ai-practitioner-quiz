@@ -60,7 +60,41 @@ export class BedrockService {
       const command = new InvokeModelCommand(input);
       const response = await this.client.send(command);
 
-      const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+      // Add detailed logging for debugging
+      logger.info("Raw Bedrock response received", {
+        statusCode: response.$metadata?.httpStatusCode,
+        bodyLength: response.body?.length,
+        bodyType: typeof response.body,
+      });
+
+      let responseBody;
+      try {
+        responseBody = JSON.parse(new TextDecoder().decode(response.body));
+        logger.info("Parsed Bedrock response body", {
+          hasContent: !!responseBody.content,
+          contentLength: responseBody.content?.length,
+          contentType: typeof responseBody.content?.[0]?.text,
+        });
+      } catch (parseError) {
+        logger.error("Failed to parse Bedrock response body", parseError, {
+          bodyPreview: new TextDecoder().decode(response.body).substring(0, 500),
+        });
+        throw new Error(
+          `Failed to parse Bedrock response: ${
+            parseError instanceof Error ? parseError.message : "Unknown error"
+          }`
+        );
+      }
+
+      if (
+        !responseBody.content ||
+        !responseBody.content[0] ||
+        !responseBody.content[0].text
+      ) {
+        logger.error("Invalid Bedrock response structure", { responseBody });
+        throw new Error("Invalid response structure from Bedrock");
+      }
+
       const questionData = this.parseResponse(responseBody.content[0].text);
 
       const generationTime = Date.now() - startTime;
@@ -146,7 +180,9 @@ The correctAnswer should be the index (0-3) of the correct option in the options
 
     const excludeInstructions =
       request.excludeQuestionIds && request.excludeQuestionIds.length > 0
-        ? `\nAvoid creating questions similar to these previously asked topics: ${request.excludeQuestionIds.join(", ")}`
+        ? `\nAvoid creating questions similar to these previously asked topics: ${request.excludeQuestionIds.join(
+            ", "
+          )}`
         : "";
 
     const topicFocus = request.topic
@@ -167,13 +203,31 @@ The correctAnswer should be the index (0-3) of the correct option in the options
    */
   private parseResponse(responseText: string): QuizQuestion {
     try {
+      logger.info("Parsing Claude response", {
+        responseLength: responseText.length,
+        responsePreview: responseText.substring(0, 200)
+      });
+
       // Try to extract JSON from the response
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
+        logger.error("No JSON found in Claude response", { responseText });
         throw new Error("No JSON found in response");
       }
 
-      const questionData = JSON.parse(jsonMatch[0]);
+      logger.info("JSON extracted from response", {
+        jsonPreview: jsonMatch[0].substring(0, 300)
+      });
+
+      let questionData;
+      try {
+        questionData = JSON.parse(jsonMatch[0]);
+      } catch (jsonError) {
+        logger.error("Failed to parse extracted JSON", jsonError, {
+          jsonText: jsonMatch[0]
+        });
+        throw new Error(`JSON parsing failed: ${jsonError instanceof Error ? jsonError.message : "Unknown error"}`);
+      }
 
       // Validate required fields
       if (

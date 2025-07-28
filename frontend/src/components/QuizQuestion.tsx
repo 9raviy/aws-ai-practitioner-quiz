@@ -82,7 +82,22 @@ const QuizQuestionComponent: React.FC = () => {
       const response = await apiService.getQuestion(sessionId);
 
       if (response.success && response.data) {
-        setQuestion(response.data);
+        // Add debugging to understand the response structure
+        console.log('API Response:', response);
+        console.log('Question data:', response.data);
+        
+        // Extract the question from the nested response structure
+        const questionData = response.data.question || response.data;
+        
+        // Type check and set the question
+        if (questionData && typeof questionData === 'object' && 'id' in questionData) {
+          setQuestion(questionData as QuizQuestion);
+        } else {
+          throw new Error('Invalid question data structure received');
+        }
+        
+        // If progress data is available, you could also use it here
+        // const progressData = response.data.progress;
       } else {
         throw new Error(response.error || 'Failed to load question');
       }
@@ -232,7 +247,7 @@ const QuizQuestionComponent: React.FC = () => {
           {/* Question Text */}
           <Paper sx={{ p: 3, mb: 4, bgcolor: 'primary.50' }}>
             <Typography variant="h6" sx={{ lineHeight: 1.6 }}>
-              {question.question}
+              {typeof question?.question === 'string' ? question.question : 'Question data unavailable'}
             </Typography>
           </Paper>
 
