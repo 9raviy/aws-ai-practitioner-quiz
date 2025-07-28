@@ -32,18 +32,6 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Install dependencies and cache
-        run: |
-          # Install backend dependencies
-          cd backend
-          npm ci
-          cd ..
-          
-          # Install frontend dependencies  
-          cd frontend
-          npm ci
-          cd ..
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -57,25 +45,39 @@ jobs:
           
           echo "🧹 Checking for conflicting stacks..."
           
-          # Delete any failed stacks
+          # Delete any failed stacks (check if exists first)
           FAILED_STACK="ai-quiz-${ENVIRONMENT}"
-          if aws cloudformation describe-stacks --stack-name $FAILED_STACK 2>/dev/null; then
+          if aws cloudformation describe-stacks --stack-name $FAILED_STACK >/dev/null 2>&1; then
             STACK_STATUS=$(aws cloudformation describe-stacks --stack-name $FAILED_STACK --query 'Stacks[0].StackStatus' --output text)
+            echo "Found stack $FAILED_STACK with status: $STACK_STATUS"
             if [[ "$STACK_STATUS" == *"ROLLBACK"* ]] || [[ "$STACK_STATUS" == *"FAILED"* ]]; then
               echo "Deleting failed stack: $FAILED_STACK (Status: $STACK_STATUS)"
               aws cloudformation delete-stack --stack-name $FAILED_STACK
+              echo "Waiting for stack deletion to complete..."
               aws cloudformation wait stack-delete-complete --stack-name $FAILED_STACK
+              echo "Stack $FAILED_STACK deleted successfully"
+            else
+              echo "Stack $FAILED_STACK exists but is in status: $STACK_STATUS (not deleting)"
             fi
+          else
+            echo "Stack $FAILED_STACK does not exist (this is normal for first deployment)"
           fi
           
           # Delete conflicting minimal stack if it exists
-          if aws cloudformation describe-stacks --stack-name ai-quiz-minimal 2>/dev/null; then
-            echo "Deleting conflicting stack: ai-quiz-minimal"
+          if aws cloudformation describe-stacks --stack-name ai-quiz-minimal >/dev/null 2>&1; then
+            echo "Found conflicting stack: ai-quiz-minimal, deleting..."
             aws cloudformation delete-stack --stack-name ai-quiz-minimal
+            echo "Waiting for ai-quiz-minimal deletion to complete..."
             aws cloudformation wait stack-delete-complete --stack-name ai-quiz-minimal
+            echo "Stack ai-quiz-minimal deleted successfully"
+          else
+            echo "No conflicting ai-quiz-minimal stack found"
           fi
+          
+          echo "✅ Cleanup completed"
 
       - name: Deploy Infrastructure
+        id: deploy-infrastructure
         run: |
           ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
           STACK_NAME="ai-quiz-${ENVIRONMENT}"
@@ -90,6 +92,49 @@ jobs:
             --capabilities CAPABILITY_NAMED_IAM \
             --region ${{ env.AWS_REGION }} \
             --no-fail-on-empty-changeset
+          
+          # Verify stack was created successfully
+          STACK_STATUS=$(aws cloudformation describe-stacks --stack-name $STACK_NAME --query 'Stacks[0].StackStatus' --output text)
+          echo "Stack status: $STACK_STATUS"
+          
+          if [[ "$STACK_STATUS" != "CREATE_COMPLETE" && "$STACK_STATUS" != "UPDATE_COMPLETE" ]]; then
+            echo "❌ Infrastructure deployment failed with status: $STACK_STATUS"
+            exit 1
+          fi
+          
+          echo "✅ Infrastructure deployed successfully"
+
+      - name: Verify Infrastructure Outputs
+        run: |
+          ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
+          STACK_NAME="ai-quiz-${ENVIRONMENT}"
+          
+          echo "🔍 Verifying infrastructure outputs..."
+          
+          # Check that required outputs exist
+          FUNCTION_NAME=$(aws cloudformation describe-stacks \
+            --stack-name $STACK_NAME \
+            --query 'Stacks[0].Outputs[?OutputKey==`LambdaFunctionName`].OutputValue' \
+            --output text)
+          
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name $STACK_NAME \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
+            --output text)
+          
+          if [[ -z "$FUNCTION_NAME" || "$FUNCTION_NAME" == "None" ]]; then
+            echo "❌ Lambda function name not found in stack outputs"
+            exit 1
+          fi
+          
+          if [[ -z "$API_URL" || "$API_URL" == "None" ]]; then
+            echo "❌ API URL not found in stack outputs"
+            exit 1
+          fi
+          
+          echo "✅ Infrastructure outputs verified:"
+          echo "  Lambda Function: $FUNCTION_NAME"
+          echo "  API URL: $API_URL"
 
       - name: Deploy Backend
         run: |
@@ -97,18 +142,28 @@ jobs:
           STACK_NAME="ai-quiz-${ENVIRONMENT}"
           
           echo "🛠️ Deploying backend for environment: $ENVIRONMENT"
+          echo "📋 This step requires infrastructure to be deployed first"
           
-          # Get function name
+          # Get function name from infrastructure stack
           FUNCTION_NAME=$(aws cloudformation describe-stacks \
             --stack-name $STACK_NAME \
             --query 'Stacks[0].Outputs[?OutputKey==`LambdaFunctionName`].OutputValue' \
             --output text)
           
-          # Build backend
+          if [[ -z "$FUNCTION_NAME" || "$FUNCTION_NAME" == "None" ]]; then
+            echo "❌ Cannot find Lambda function name from infrastructure stack"
+            echo "❌ Infrastructure deployment may have failed"
+            exit 1
+          fi
+          
+          echo "📦 Installing backend dependencies..."
           cd backend
+          npm ci
+          
+          echo "📦 Building backend..."
           npm run build
           
-          # Create deployment package
+          echo "📦 Creating deployment package..."
           rm -rf lambda-deploy
           mkdir lambda-deploy
           cp -r dist/* lambda-deploy/
@@ -118,10 +173,12 @@ jobs:
           zip -r ../backend-deployment.zip .
           cd ..
           
-          # Deploy to Lambda
+          echo "🚀 Deploying to Lambda function: $FUNCTION_NAME"
           aws lambda update-function-code \
             --function-name $FUNCTION_NAME \
             --zip-file fileb://backend-deployment.zip
+          
+          echo "✅ Backend deployed successfully"
 
       - name: Deploy Frontend
         run: |
@@ -129,28 +186,74 @@ jobs:
           STACK_NAME="ai-quiz-${ENVIRONMENT}"
           
           echo "🎨 Deploying frontend for environment: $ENVIRONMENT"
+          echo "📋 This step requires infrastructure and backend to be deployed first"
           
-          # Get API URL
+          # Get API URL from infrastructure stack
           API_URL=$(aws cloudformation describe-stacks \
             --stack-name $STACK_NAME \
             --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
             --output text)
           
-          # Build frontend
+          if [[ -z "$API_URL" || "$API_URL" == "None" ]]; then
+            echo "❌ Cannot find API URL from infrastructure stack"
+            echo "❌ Infrastructure deployment may have failed"
+            exit 1
+          fi
+          
+          echo "🔗 Using API URL: $API_URL"
+          
+          # Build frontend with environment configuration
           cd frontend
+          echo "📝 Creating production environment file..."
           cat > .env.production << EOF
           VITE_API_URL=$API_URL
           VITE_ENVIRONMENT=$ENVIRONMENT
           EOF
           
+          echo "📦 Installing frontend dependencies..."
+          npm ci
+          
+          echo "📦 Building frontend..."
           npm run build
           
           # Create S3 bucket and deploy
+          echo "🪣 Creating S3 bucket..."
           BUCKET_NAME="ai-quiz-frontend-${ENVIRONMENT}-$(date +%s)"
           aws s3 mb s3://$BUCKET_NAME --region ${{ env.AWS_REGION }}
+          
+          echo "🌐 Configuring bucket for website hosting..."
           aws s3 website s3://$BUCKET_NAME --index-document index.html --error-document index.html
+          
+          echo "🚀 Uploading frontend files..."
           aws s3 sync dist/ s3://$BUCKET_NAME --delete
           
+          WEBSITE_URL="http://$BUCKET_NAME.s3-website-${{ env.AWS_REGION }}.amazonaws.com"
+          
           echo "✅ Deployment complete!"
-          echo "API URL: $API_URL"
-          echo "Website URL: http://$BUCKET_NAME.s3-website-${{ env.AWS_REGION }}.amazonaws.com"
+          echo "🔗 API URL: $API_URL"
+          echo "🌐 Website URL: $WEBSITE_URL"
+          
+          # Save deployment info for reference
+          echo "WEBSITE_URL=$WEBSITE_URL" >> $GITHUB_ENV
+          echo "API_URL=$API_URL" >> $GITHUB_ENV
+
+      - name: Deployment Summary
+        run: |
+          ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
+          
+          echo "🎉 ===== DEPLOYMENT COMPLETE ====="
+          echo ""
+          echo "📋 Environment: $ENVIRONMENT"
+          echo "🌍 AWS Region: ${{ env.AWS_REGION }}"
+          echo "⏰ Completed at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo ""
+          echo "🔗 Application URLs:"
+          echo "  • API: ${API_URL}"
+          echo "  • Website: ${WEBSITE_URL}"
+          echo ""
+          echo "✅ All components deployed successfully!"
+          echo "✅ Infrastructure: CloudFormation stack ai-quiz-${ENVIRONMENT}"
+          echo "✅ Backend: Lambda function updated"
+          echo "✅ Frontend: S3 bucket created and files uploaded"
+          echo ""
+          echo "🚀 Your AI Practitioner Quiz application is now live!"

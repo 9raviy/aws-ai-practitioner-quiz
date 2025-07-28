@@ -54,23 +54,36 @@ jobs:
           
           echo "🧹 Checking for conflicting stacks..."
           
-          # Delete any failed stacks
+          # Delete any failed stacks (check if exists first)
           FAILED_STACK="ai-quiz-${ENVIRONMENT}"
-          if aws cloudformation describe-stacks --stack-name $FAILED_STACK 2>/dev/null; then
+          if aws cloudformation describe-stacks --stack-name $FAILED_STACK >/dev/null 2>&1; then
             STACK_STATUS=$(aws cloudformation describe-stacks --stack-name $FAILED_STACK --query 'Stacks[0].StackStatus' --output text)
+            echo "Found stack $FAILED_STACK with status: $STACK_STATUS"
             if [[ "$STACK_STATUS" == *"ROLLBACK"* ]] || [[ "$STACK_STATUS" == *"FAILED"* ]]; then
               echo "Deleting failed stack: $FAILED_STACK (Status: $STACK_STATUS)"
               aws cloudformation delete-stack --stack-name $FAILED_STACK
+              echo "Waiting for stack deletion to complete..."
               aws cloudformation wait stack-delete-complete --stack-name $FAILED_STACK
+              echo "Stack $FAILED_STACK deleted successfully"
+            else
+              echo "Stack $FAILED_STACK exists but is in status: $STACK_STATUS (not deleting)"
             fi
+          else
+            echo "Stack $FAILED_STACK does not exist (this is normal for first deployment)"
           fi
           
           # Delete conflicting minimal stack if it exists
-          if aws cloudformation describe-stacks --stack-name ai-quiz-minimal 2>/dev/null; then
-            echo "Deleting conflicting stack: ai-quiz-minimal"
+          if aws cloudformation describe-stacks --stack-name ai-quiz-minimal >/dev/null 2>&1; then
+            echo "Found conflicting stack: ai-quiz-minimal, deleting..."
             aws cloudformation delete-stack --stack-name ai-quiz-minimal
+            echo "Waiting for ai-quiz-minimal deletion to complete..."
             aws cloudformation wait stack-delete-complete --stack-name ai-quiz-minimal
+            echo "Stack ai-quiz-minimal deleted successfully"
+          else
+            echo "No conflicting ai-quiz-minimal stack found"
           fi
+          
+          echo "✅ Cleanup completed"
 
       - name: Deploy CloudFormation stack
         run: |
