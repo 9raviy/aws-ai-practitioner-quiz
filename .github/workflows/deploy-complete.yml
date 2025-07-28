@@ -220,27 +220,6 @@ jobs:
             exit 1
           fi
           
-          echo "🔗 Using API URL: $API_URL"
-          
-          # Build frontend with environment configuration
-          cd frontend
-          echo "📝 Creating production environment file..."
-          cat > .env.production << EOF
-          VITE_API_URL=$API_URL
-          VITE_ENVIRONMENT=$ENVIRONMENT
-          EOF
-          
-          echo "📦 Installing frontend dependencies..."
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            echo "⚠️ package-lock.json not found, running npm install to generate it"
-            npm install
-          fi
-          
-          echo "📦 Building frontend..."
-          npm run build
-          
           # Get S3 bucket name from infrastructure stack (CloudFormation managed)
           BUCKET_NAME=$(aws cloudformation describe-stacks \
             --stack-name $STACK_NAME \
@@ -282,7 +261,7 @@ jobs:
           echo "📦 Building frontend..."
           npm run build
           
-          echo "🚀 Uploading frontend files to S3..."
+          echo " Uploading frontend files to S3..."
           aws s3 sync dist/ s3://$BUCKET_NAME --delete
           
           # Get CloudFront distribution ID for cache invalidation
