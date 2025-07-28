@@ -396,21 +396,3 @@ Outputs:
     Value: !Sub 'https://${CloudFrontDistribution.DomainName}'
     Export:
       Name: !Sub '${Environment}-quiz-website-url'
-
-  CloudFrontDistributionId:
-    Description: 'CloudFront Distribution ID'
-    Value: !Ref CloudFrontDistribution
-    Export:
-      Name: !Sub '${Environment}-quiz-cloudfront-distribution-id'
-
-  CloudFrontDistributionDomain:
-    Description: 'CloudFront Distribution Domain Name'
-    Value: !GetAtt CloudFrontDistribution.DomainName
-    Export:
-      Name: !Sub '${Environment}-quiz-cloudfront-distribution-domain'
-
-  FrontendBucketName:
-    Description: 'S3 Bucket Name for Frontend'
-    Value: !Ref FrontendBucket
-    Export:
-      Name: !Sub '${Environment}-quiz-frontend-bucket'
