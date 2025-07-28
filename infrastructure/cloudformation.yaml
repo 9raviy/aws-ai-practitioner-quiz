@@ -208,7 +208,7 @@ Resources:
         RequestParameters:
           integration.request.path.proxy: method.request.path.proxy
 
-  # CORS for API Gateway
+  # CORS for API Gateway - Let Lambda handle OPTIONS requests
   OptionsMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -217,23 +217,11 @@ Resources:
       HttpMethod: OPTIONS
       AuthorizationType: NONE
       Integration:
-        Type: MOCK
-        IntegrationResponses:
-          - StatusCode: 200
-            ResponseParameters:
-              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
-              method.response.header.Access-Control-Allow-Origin: "'*'"
-            ResponseTemplates:
-              application/json: ''
-        RequestTemplates:
-          application/json: '{"statusCode": 200}'
-      MethodResponses:
-        - StatusCode: 200
-          ResponseParameters:
-            method.response.header.Access-Control-Allow-Headers: false
-            method.response.header.Access-Control-Allow-Methods: false
-            method.response.header.Access-Control-Allow-Origin: false
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${QuizAPIFunction.Arn}/invocations'
+        RequestParameters:
+          integration.request.path.proxy: method.request.path.proxy
 
   # Lambda Permissions for API Gateway
   APILambdaPermission:

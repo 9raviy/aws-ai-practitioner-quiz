@@ -14,20 +14,6 @@ import {
 
 const router = Router();
 
-// CORS middleware for all quiz routes
-router.use((req: Request, res: Response, next: NextFunction) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
-  
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-  
-  next();
-});
-
 // Initialize services
 const bedrockService = new BedrockService();
 const sessionService = new SessionService();

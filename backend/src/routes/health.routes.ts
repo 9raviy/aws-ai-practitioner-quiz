@@ -4,20 +4,6 @@ import { logger } from "../utils/logger";
 
 const router = Router();
 
-// CORS middleware for all health routes
-router.use((req: Request, res: Response, next: NextFunction) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
-  
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-  
-  next();
-});
-
 /**
  * Health check endpoint
  * GET /api/v1/health

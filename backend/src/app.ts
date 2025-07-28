@@ -38,13 +38,23 @@ app.use(
 // CORS configuration
 app.use(
   cors({
-    origin: true, // Allow all origins in development and production for now
+    origin: function (origin, callback) {
+      // Allow requests with no origin (mobile apps, etc.)
+      if (!origin) return callback(null, true);
+      
+      // Allow all origins for now (can be restricted later)
+      return callback(null, true);
+    },
     credentials: true,
     optionsSuccessStatus: 200,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+    preflightContinue: false,
   })
 );
+
+// Handle preflight OPTIONS requests explicitly
+app.options('*', cors());
 
 // Rate limiting
 const limiter = rateLimit({
