@@ -97,9 +97,16 @@ class ApiService {
   // Submit an answer
   async submitAnswer(request: SubmitAnswerRequest): Promise<ApiResponse<{
     isCorrect: boolean;
+    correctAnswer: number;
     explanation: string;
-    currentScore: number;
-    nextQuestionNumber?: number;
+    sessionProgress: {
+      currentQuestionIndex: number;
+      totalQuestions: number;
+      score: number;
+      correctAnswers: number;
+    };
+    isQuizCompleted: boolean;
+    nextQuestion?: QuizQuestion;
   }>> {
     try {
       const response = await this.api.post('/api/v1/quiz/answer', request);

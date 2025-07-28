@@ -30,6 +30,7 @@ export interface QuizSession {
   endTime?: Date;
   isCompleted: boolean;
   userId?: string; // Optional user identifier
+  currentQuestion?: QuizQuestion; // Track the current question for validation
 }
 
 export interface UserAnswer {

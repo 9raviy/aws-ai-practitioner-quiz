@@ -40,8 +40,15 @@ const QuizQuestionComponent: React.FC = () => {
   const [feedback, setFeedback] = useState<{
     isCorrect: boolean;
     explanation: string;
-    currentScore: number;
-    nextQuestionNumber?: number;
+    correctAnswer: number;
+    sessionProgress: {
+      currentQuestionIndex: number;
+      totalQuestions: number;
+      score: number;
+      correctAnswers: number;
+    };
+    isQuizCompleted: boolean;
+    nextQuestion?: QuizQuestion;
   } | null>(null);
   
   // Quiz progress state
@@ -145,10 +152,20 @@ const QuizQuestionComponent: React.FC = () => {
   };
 
   const nextQuestion = () => {
-    if (feedback?.nextQuestionNumber) {
-      setCurrentQuestionNumber(feedback.nextQuestionNumber);
-    } else {
+    if (feedback?.isQuizCompleted) {
       // Quiz completed, navigate to results
+      navigate(`/results/${sessionId}`);
+    } else if (feedback?.nextQuestion) {
+      // Use the next question from the submit answer response
+      setQuestion(feedback.nextQuestion);
+      setCurrentQuestionNumber(feedback.sessionProgress.currentQuestionIndex + 1);
+      setSelectedOption(-1);
+      setShowFeedback(false);
+      setQuestionStartTime(new Date());
+      setTimeSpent(0);
+    } else {
+      // Something went wrong - quiz should continue but no next question
+      console.error('Quiz should continue but no next question provided');
       navigate(`/results/${sessionId}`);
     }
   };
@@ -202,7 +219,7 @@ const QuizQuestionComponent: React.FC = () => {
         <CardContent sx={{ pb: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
             <Typography variant="h6">
-              Question {currentQuestionNumber} of {totalQuestions}
+              Question {feedback?.sessionProgress ? feedback.sessionProgress.currentQuestionIndex : currentQuestionNumber} of {feedback?.sessionProgress ? feedback.sessionProgress.totalQuestions : totalQuestions}
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               {question?.difficulty && (
@@ -222,12 +239,15 @@ const QuizQuestionComponent: React.FC = () => {
           </Box>
           <LinearProgress 
             variant="determinate" 
-            value={(currentQuestionNumber / totalQuestions) * 100} 
+            value={feedback?.sessionProgress 
+              ? (feedback.sessionProgress.currentQuestionIndex / feedback.sessionProgress.totalQuestions) * 100
+              : (currentQuestionNumber / totalQuestions) * 100
+            } 
             sx={{ height: 8, borderRadius: 4 }}
           />
-          {feedback && (
+          {feedback?.sessionProgress && (
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              Current Score: {feedback.currentScore}%
+              Current Score: {feedback.sessionProgress.score}% ({feedback.sessionProgress.correctAnswers}/{feedback.sessionProgress.currentQuestionIndex} correct)
             </Typography>
           )}
         </CardContent>
@@ -332,10 +352,10 @@ const QuizQuestionComponent: React.FC = () => {
                 variant="contained"
                 size="large"
                 onClick={nextQuestion}
-                endIcon={feedback?.nextQuestionNumber ? <NavigateNext /> : <Assessment />}
+                endIcon={feedback?.nextQuestion && !feedback.isQuizCompleted ? <NavigateNext /> : <Assessment />}
                 sx={{ px: 4, py: 2 }}
               >
-                {feedback?.nextQuestionNumber ? 'Next Question' : 'View Results'}
+                {feedback?.nextQuestion && !feedback.isQuizCompleted ? 'Next Question' : 'View Results'}
               </Button>
             )}
           </Box>

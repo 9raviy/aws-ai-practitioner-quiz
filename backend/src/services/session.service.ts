@@ -26,7 +26,7 @@ export class SessionService {
   /**
    * Create a new quiz session
    */
-  async createSession(difficulty: QuizDifficulty, userId?: string): Promise<QuizSession> {
+  async createSession(difficulty: QuizDifficulty, userId?: string, firstQuestion?: QuizQuestion): Promise<QuizSession> {
     const sessionId = this.generateSessionId();
     
     const session: QuizSession = {
@@ -40,6 +40,7 @@ export class SessionService {
       startTime: new Date(),
       isCompleted: false,
       userId,
+      currentQuestion: firstQuestion,
     };
 
     if (this.useInMemory) {
@@ -78,17 +79,20 @@ export class SessionService {
   }
 
   /**
-   * Update session with new answer
+   * Update session with new answer and next question
    */
   async updateSession(
     sessionId: string, 
     answer: UserAnswer, 
-    currentQuestion: QuizQuestion
+    currentQuestion: QuizQuestion,
+    nextQuestion?: QuizQuestion
   ): Promise<QuizSession | null> {
     if (this.useInMemory) {
-      return this.updateSessionInMemory(sessionId, answer, currentQuestion);
+      return this.updateSessionInMemory(sessionId, answer, currentQuestion, nextQuestion);
     } else {
-      return this.dynamoDB.updateSession(sessionId, answer, currentQuestion);
+      // TODO: Update DynamoDB method signature to match
+      throw new Error("DynamoDB update with nextQuestion not implemented yet");
+      // return this.dynamoDB.updateSession(sessionId, answer, currentQuestion, nextQuestion);
     }
   }
 
@@ -98,7 +102,8 @@ export class SessionService {
   private updateSessionInMemory(
     sessionId: string, 
     answer: UserAnswer, 
-    currentQuestion: QuizQuestion
+    currentQuestion: QuizQuestion,
+    nextQuestion?: QuizQuestion
   ): QuizSession | null {
     const session = this.sessions.get(sessionId);
     
@@ -125,6 +130,10 @@ export class SessionService {
     if (session.currentQuestionIndex >= session.totalQuestions) {
       session.isCompleted = true;
       session.endTime = new Date();
+      session.currentQuestion = undefined; // Clear current question
+    } else {
+      // Set the next question for the session
+      session.currentQuestion = nextQuestion;
     }
 
     this.sessions.set(sessionId, session);

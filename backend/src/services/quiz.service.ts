@@ -25,14 +25,15 @@ export class QuizService {
    */
   async startQuizSession(request: QuizStartRequest): Promise<QuizStartResponse> {
     try {
-      // Create new session
+      // Generate first question
+      const firstQuestion = await this.generateQuestion(request.difficulty || QuizDifficulty.BEGINNER, []);
+
+      // Create new session with the first question
       const session = await this.sessionService.createSession(
         request.difficulty || QuizDifficulty.BEGINNER,
-        request.userId
+        request.userId,
+        firstQuestion
       );
-
-      // Generate first question
-      const firstQuestion = await this.generateQuestion(session.difficulty, []);
 
       logger.info("Quiz session started", {
         sessionId: session.sessionId,
@@ -77,14 +78,15 @@ export class QuizService {
         throw new Error("All questions have been answered");
       }
 
-      // Get adaptive difficulty
-      const difficulty = this.sessionService.getAdaptiveDifficulty(session);
+      // Use the current question from the session if available
+      let question = session.currentQuestion;
       
-      // Get previously asked question IDs to avoid duplicates
-      const excludeQuestionIds = session.answers.map(answer => answer.questionId);
-      
-      // Generate next question
-      const question = await this.generateQuestion(difficulty, excludeQuestionIds);
+      if (!question) {
+        // Fallback: generate a new question if not stored in session
+        const difficulty = this.sessionService.getAdaptiveDifficulty(session);
+        const excludeQuestionIds = session.answers.map(answer => answer.questionId);
+        question = await this.generateQuestion(difficulty, excludeQuestionIds);
+      }
 
       const progress = {
         currentQuestion: session.currentQuestionIndex + 1,
@@ -130,11 +132,17 @@ export class QuizService {
         throw new Error("Quiz already completed");
       }
 
-      // First, we need to get the current question to validate the answer
-      // For now, we'll generate it again (in Phase 3, we'll store questions)
-      const difficulty = this.sessionService.getAdaptiveDifficulty(session);
-      const excludeQuestionIds = session.answers.map(answer => answer.questionId);
-      const currentQuestion = await this.generateQuestion(difficulty, excludeQuestionIds);
+      // Use the current question from the session for validation
+      const currentQuestion = session.currentQuestion;
+      
+      if (!currentQuestion) {
+        throw new Error("No current question found in session");
+      }
+
+      // Validate that the question ID matches
+      if (currentQuestion.id !== request.questionId) {
+        throw new Error("Question ID mismatch");
+      }
 
       // Validate answer
       const isCorrect = request.selectedAnswer === currentQuestion.correctAnswer;
@@ -148,11 +156,25 @@ export class QuizService {
         timestamp: new Date(),
       };
 
-      // Update session
+      // Generate next question if quiz is not completed
+      let nextQuestion: QuizQuestion | undefined;
+      if (session.currentQuestionIndex + 1 < session.totalQuestions) {
+        const nextDifficulty = this.sessionService.getAdaptiveDifficulty({
+          ...session,
+          currentQuestionIndex: session.currentQuestionIndex + 1,
+          answers: [...session.answers, userAnswer],
+          correctAnswers: session.correctAnswers + (isCorrect ? 1 : 0),
+        });
+        const nextExcludeIds = [...session.answers.map(answer => answer.questionId), request.questionId];
+        nextQuestion = await this.generateQuestion(nextDifficulty, nextExcludeIds);
+      }
+
+      // Update session with answer and next question
       const updatedSession = await this.sessionService.updateSession(
         request.sessionId,
         userAnswer,
-        currentQuestion
+        currentQuestion,
+        nextQuestion
       );
 
       if (!updatedSession) {
@@ -173,17 +195,13 @@ export class QuizService {
         isQuizCompleted: updatedSession.isCompleted,
       };
 
-      // If quiz is not completed, get next question
-      if (!updatedSession.isCompleted) {
-        const nextDifficulty = this.sessionService.getAdaptiveDifficulty(updatedSession);
-        const nextExcludeIds = updatedSession.answers.map(answer => answer.questionId);
-        const nextQuestion = await this.generateQuestion(nextDifficulty, nextExcludeIds);
-        
+      // If quiz is not completed, include next question from session
+      if (!updatedSession.isCompleted && updatedSession.currentQuestion) {
         response.nextQuestion = {
-          ...nextQuestion,
+          ...updatedSession.currentQuestion,
           questionNumber: updatedSession.currentQuestionIndex + 1,
         };
-      } else {
+      } else if (updatedSession.isCompleted) {
         // Quiz completed, include final results
         response.finalResults = await this.calculateFinalResults(updatedSession);
       }
@@ -218,8 +236,10 @@ export class QuizService {
         throw new Error("Session not found");
       }
 
-      if (!session.isCompleted) {
-        throw new Error("Quiz not yet completed");
+      // Allow getting results even if quiz is not officially completed
+      // This handles edge cases where frontend requests results early
+      if (!session.isCompleted && session.currentQuestionIndex === 0) {
+        throw new Error("Quiz has not started yet");
       }
 
       return this.calculateFinalResults(session);
