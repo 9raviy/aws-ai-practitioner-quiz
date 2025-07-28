@@ -122,6 +122,12 @@ export class QuizService {
    */
   async submitAnswer(request: SubmitAnswerRequest): Promise<SubmitAnswerResponse> {
     try {
+      logger.info("Submit answer - starting", { 
+        sessionId: request.sessionId,
+        questionId: request.questionId,
+        selectedAnswer: request.selectedAnswer 
+      });
+
       const session = await this.sessionService.getSession(request.sessionId);
       
       if (!session) {
@@ -141,11 +147,17 @@ export class QuizService {
 
       // Validate that the question ID matches
       if (currentQuestion.id !== request.questionId) {
+        logger.error("Question ID mismatch", {
+          expected: currentQuestion.id,
+          received: request.questionId,
+          sessionId: request.sessionId
+        });
         throw new Error("Question ID mismatch");
       }
 
       // Validate answer
       const isCorrect = request.selectedAnswer === currentQuestion.correctAnswer;
+      logger.info("Answer validation", { isCorrect, selectedAnswer: request.selectedAnswer, correctAnswer: currentQuestion.correctAnswer });
 
       // Create user answer record
       const userAnswer: UserAnswer = {
@@ -159,17 +171,33 @@ export class QuizService {
       // Generate next question if quiz is not completed
       let nextQuestion: QuizQuestion | undefined;
       if (session.currentQuestionIndex + 1 < session.totalQuestions) {
-        const nextDifficulty = this.sessionService.getAdaptiveDifficulty({
-          ...session,
-          currentQuestionIndex: session.currentQuestionIndex + 1,
-          answers: [...session.answers, userAnswer],
-          correctAnswers: session.correctAnswers + (isCorrect ? 1 : 0),
-        });
-        const nextExcludeIds = [...session.answers.map(answer => answer.questionId), request.questionId];
-        nextQuestion = await this.generateQuestion(nextDifficulty, nextExcludeIds);
+        try {
+          logger.info("Generating next question", { 
+            currentIndex: session.currentQuestionIndex,
+            totalQuestions: session.totalQuestions 
+          });
+          
+          const nextDifficulty = this.sessionService.getAdaptiveDifficulty({
+            ...session,
+            currentQuestionIndex: session.currentQuestionIndex + 1,
+            answers: [...session.answers, userAnswer],
+            correctAnswers: session.correctAnswers + (isCorrect ? 1 : 0),
+          });
+          
+          const nextExcludeIds = [...session.answers.map(answer => answer.questionId), request.questionId];
+          nextQuestion = await this.generateQuestion(nextDifficulty, nextExcludeIds);
+          
+          logger.info("Next question generated successfully", { nextDifficulty, nextQuestionId: nextQuestion?.id });
+        } catch (questionError) {
+          logger.error("Failed to generate next question", questionError);
+          throw new Error(`Failed to generate next question: ${questionError instanceof Error ? questionError.message : 'Unknown error'}`);
+        }
+      } else {
+        logger.info("Quiz will be completed after this answer");
       }
 
       // Update session with answer and next question
+      logger.info("Updating session", { sessionId: request.sessionId });
       const updatedSession = await this.sessionService.updateSession(
         request.sessionId,
         userAnswer,
@@ -180,6 +208,12 @@ export class QuizService {
       if (!updatedSession) {
         throw new Error("Failed to update session");
       }
+
+      logger.info("Session updated successfully", { 
+        sessionId: request.sessionId,
+        isCompleted: updatedSession.isCompleted,
+        currentIndex: updatedSession.currentQuestionIndex
+      });
 
       // Prepare response
       const response: SubmitAnswerResponse = {
