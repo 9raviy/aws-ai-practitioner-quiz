@@ -190,11 +190,13 @@ const QuizQuestionComponent: React.FC = () => {
               Question {currentQuestionNumber} of {totalQuestions}
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Chip 
-                label={question.difficulty} 
-                color={getDifficultyColor(question.difficulty) as any}
-                size="small"
-              />
+              {question?.difficulty && (
+                <Chip 
+                  label={question.difficulty} 
+                  color={getDifficultyColor(question.difficulty) as any}
+                  size="small"
+                />
+              )}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <Timer fontSize="small" />
                 <Typography variant="body2">
@@ -240,7 +242,7 @@ const QuizQuestionComponent: React.FC = () => {
             onChange={handleOptionChange}
             sx={{ mb: 3 }}
           >
-            {question.options.map((option, index) => (
+            {question?.options?.map((option, index) => (
               <FormControlLabel
                 key={index}
                 value={index.toString()}

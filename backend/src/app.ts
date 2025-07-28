@@ -3,8 +3,12 @@ import cors from "cors";
 import helmet from "helmet";
 import compression from "compression";
 import rateLimit from "express-rate-limit";
+import { config } from "dotenv";
 import { logger } from "./utils/logger";
 import { AWS_CONFIG } from "./utils/constants";
+
+// Load environment variables
+config();
 
 // Route imports (to be created)
 import quizRoutes from "./routes/quiz.routes";
@@ -15,7 +19,7 @@ import { errorHandler } from "./middleware/error.middleware";
 import { requestLogger } from "./middleware/logging.middleware";
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001; // Default to 3001 instead of 3000
 
 // Security middleware
 app.use(
