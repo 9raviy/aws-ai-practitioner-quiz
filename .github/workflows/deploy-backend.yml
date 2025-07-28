@@ -43,11 +43,6 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
-      - name: Install backend dependencies
-        run: |
-          cd backend
-          npm ci
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -58,7 +53,13 @@ jobs:
       - name: Install backend dependencies
         run: |
           cd backend
-          npm ci
+          if [ -f package-lock.json ]; then
+            echo "Installing all dependencies (including dev dependencies for build)..."
+            npm ci
+          else
+            echo "⚠️ package-lock.json not found, running npm install to generate it"
+            npm install
+          fi
 
       - name: Run backend tests
         run: |
@@ -94,10 +95,20 @@ jobs:
           # Copy built JavaScript files
           cp -r dist/* lambda-deploy/
           
-          # Copy package.json and install production dependencies
-          cp package.json package-lock.json lambda-deploy/
+          # Copy package.json and package-lock.json if it exists
+          cp package.json lambda-deploy/
+          if [ -f package-lock.json ]; then
+            cp package-lock.json lambda-deploy/
+          fi
+          
           cd lambda-deploy
-          npm ci --only=production
+          if [ -f package-lock.json ]; then
+            echo "Installing production dependencies only..."
+            npm ci --omit=dev
+          else
+            echo "⚠️ package-lock.json not found, running npm install for production dependencies"
+            npm install --omit=dev
+          fi
           
           # Create ZIP file
           zip -r ../backend-deployment.zip .
