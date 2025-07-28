@@ -83,14 +83,17 @@ export class DynamoDBService {
         return null;
       }
 
-      // Convert DynamoDB item back to QuizSession
+      // Convert DynamoDB item back to QuizSession - deserialize Date strings back to Date objects
       const session: QuizSession = {
         sessionId: result.Item.sessionId,
         currentQuestionIndex: result.Item.currentQuestionIndex,
         totalQuestions: result.Item.totalQuestions,
         score: result.Item.score,
         correctAnswers: result.Item.correctAnswers,
-        answers: result.Item.answers || [],
+        answers: (result.Item.answers || []).map((answer: any) => ({
+          ...answer,
+          timestamp: new Date(answer.timestamp)
+        })),
         difficulty: result.Item.difficulty,
         startTime: new Date(result.Item.startTime),
         endTime: result.Item.endTime ? new Date(result.Item.endTime) : undefined,
@@ -147,7 +150,12 @@ export class DynamoDBService {
         currentSession.currentQuestion = nextQuestion;
       }
 
-      // Update in DynamoDB
+      // Update in DynamoDB - serialize Date objects to strings
+      const serializedAnswers = currentSession.answers.map(answer => ({
+        ...answer,
+        timestamp: answer.timestamp.toISOString()
+      }));
+
       const command = new UpdateCommand({
         TableName: this.tableName,
         Key: { sessionId },
@@ -164,7 +172,7 @@ export class DynamoDBService {
           ':currentQuestionIndex': currentSession.currentQuestionIndex,
           ':score': currentSession.score,
           ':correctAnswers': currentSession.correctAnswers,
-          ':answers': currentSession.answers,
+          ':answers': serializedAnswers,
           ':isCompleted': currentSession.isCompleted,
           ':endTime': currentSession.endTime ? currentSession.endTime.toISOString() : null,
           ':currentQuestion': currentSession.currentQuestion || null,
