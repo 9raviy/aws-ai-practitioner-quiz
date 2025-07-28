@@ -18,25 +18,30 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Security middleware
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:"],
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+      },
     },
-  },
-}));
+  })
+);
 
 // CORS configuration
-app.use(cors({
-  origin: process.env.NODE_ENV === "production" 
-    ? ["https://your-domain.com"] 
-    : ["http://localhost:3000", "http://localhost:3001"],
-  credentials: true,
-  optionsSuccessStatus: 200,
-}));
+app.use(
+  cors({
+    origin:
+      process.env.NODE_ENV === "production"
+        ? ["https://your-domain.com"]
+        : ["http://localhost:3000", "http://localhost:3001"],
+    credentials: true,
+    optionsSuccessStatus: 200,
+  })
+);
 
 // Rate limiting
 const limiter = rateLimit({
@@ -56,7 +61,7 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // Body parsing middleware
-app.use(compression());
+app.use(compression() as any);
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
