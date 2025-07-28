@@ -38,12 +38,11 @@ app.use(
 // CORS configuration
 app.use(
   cors({
-    origin:
-      process.env.NODE_ENV === "production"
-        ? ["https://your-domain.com"]
-        : ["http://localhost:3000", "http://localhost:3001"],
+    origin: true, // Allow all origins in development and production for now
     credentials: true,
     optionsSuccessStatus: 200,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
   })
 );
 
