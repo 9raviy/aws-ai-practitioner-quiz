@@ -1,11 +1,12 @@
 name: Deploy Backend
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'backend/**'
-      - '.github/workflows/deploy-backend.yml'
+  # Disabled automatic push triggers to prevent conflicts with complete deployment
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - 'backend/**'
+  #     - '.github/workflows/deploy-backend.yml'
   workflow_dispatch:
     inputs:
       environment:

@@ -1,10 +1,11 @@
 name: Deploy Infrastructure
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'infrastructure/**'
+  # Disabled automatic push triggers to prevent conflicts with complete deployment
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - 'infrastructure/**'
   workflow_dispatch:
     inputs:
       environment:
