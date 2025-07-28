@@ -220,8 +220,6 @@ Resources:
         Type: AWS_PROXY
         IntegrationHttpMethod: POST
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${QuizAPIFunction.Arn}/invocations'
-        RequestParameters:
-          integration.request.path.proxy: method.request.path.proxy
 
   # Lambda Permissions for API Gateway
   APILambdaPermission:
