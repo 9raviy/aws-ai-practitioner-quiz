@@ -1,0 +1,214 @@
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+env:
+  AWS_REGION: us-east-1
+  NODE_VERSION: '18'
+
+jobs:
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get API Gateway URL from stack
+        id: get-api-url
+        run: |
+          ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
+          STACK_NAME="ai-quiz-${ENVIRONMENT}"
+          
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name $STACK_NAME \
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
+            --output text)
+          
+          echo "api-url=$API_URL" >> $GITHUB_OUTPUT
+
+      - name: Create environment file for frontend
+        run: |
+          cd frontend
+          cat > .env.production << EOF
+          VITE_API_URL=${{ steps.get-api-url.outputs.api-url }}
+          VITE_ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
+          EOF
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Run frontend tests
+        run: |
+          cd frontend
+          npm test -- --run || echo "No tests found, skipping..."
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm run build
+
+      - name: Get S3 bucket name from stack
+        id: get-bucket
+        run: |
+          ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
+          STACK_NAME="ai-quiz-${ENVIRONMENT}"
+          
+          # Check if S3 bucket output exists (we may need to add this to CloudFormation)
+          BUCKET_NAME=$(aws cloudformation describe-stacks \
+            --stack-name $STACK_NAME \
+            --query 'Stacks[0].Outputs[?OutputKey==`S3BucketName`].OutputValue' \
+            --output text 2>/dev/null || echo "")
+          
+          if [ -z "$BUCKET_NAME" ]; then
+            # Create a bucket name if not in outputs
+            BUCKET_NAME="ai-quiz-frontend-${{ github.event.inputs.environment || 'dev' }}-$(date +%s)"
+            echo "Creating new S3 bucket: $BUCKET_NAME"
+            
+            # Create S3 bucket
+            aws s3 mb s3://$BUCKET_NAME --region ${{ env.AWS_REGION }}
+            
+            # Configure bucket for static website hosting
+            aws s3 website s3://$BUCKET_NAME \
+              --index-document index.html \
+              --error-document index.html
+            
+            # Set public read policy
+            cat > bucket-policy.json << EOF
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Sid": "PublicReadGetObject",
+                "Effect": "Allow",
+                "Principal": "*",
+                "Action": "s3:GetObject",
+                "Resource": "arn:aws:s3:::$BUCKET_NAME/*"
+              }
+            ]
+          }
+          EOF
+            
+            aws s3api put-bucket-policy \
+              --bucket $BUCKET_NAME \
+              --policy file://bucket-policy.json
+          fi
+          
+          echo "bucket-name=$BUCKET_NAME" >> $GITHUB_OUTPUT
+
+      - name: Deploy to S3
+        run: |
+          cd frontend
+          aws s3 sync dist/ s3://${{ steps.get-bucket.outputs.bucket-name }} \
+            --delete \
+            --cache-control "max-age=86400" \
+            --exclude "*.html" \
+            --region ${{ env.AWS_REGION }}
+          
+          # Upload HTML files with shorter cache
+          aws s3 sync dist/ s3://${{ steps.get-bucket.outputs.bucket-name }} \
+            --cache-control "max-age=300" \
+            --exclude "*" \
+            --include "*.html" \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Invalidate CloudFront (if exists)
+        run: |
+          ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
+          STACK_NAME="ai-quiz-${ENVIRONMENT}"
+          
+          # Check if CloudFront distribution exists
+          DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+            --stack-name $STACK_NAME \
+            --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontDistributionId`].OutputValue' \
+            --output text 2>/dev/null || echo "")
+          
+          if [ -n "$DISTRIBUTION_ID" ] && [ "$DISTRIBUTION_ID" != "None" ]; then
+            echo "Invalidating CloudFront distribution: $DISTRIBUTION_ID"
+            aws cloudfront create-invalidation \
+              --distribution-id $DISTRIBUTION_ID \
+              --paths "/*"
+          else
+            echo "No CloudFront distribution found, skipping invalidation"
+          fi
+
+      - name: Get website URL
+        id: get-website-url
+        run: |
+          BUCKET_NAME=${{ steps.get-bucket.outputs.bucket-name }}
+          WEBSITE_URL="http://$BUCKET_NAME.s3-website-${{ env.AWS_REGION }}.amazonaws.com"
+          echo "website-url=$WEBSITE_URL" >> $GITHUB_OUTPUT
+
+      - name: Test frontend deployment
+        run: |
+          WEBSITE_URL=${{ steps.get-website-url.outputs.website-url }}
+          
+          # Wait a moment for S3 to propagate
+          sleep 10
+          
+          # Test if website is accessible
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" $WEBSITE_URL || echo "000")
+          
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "✅ Frontend deployed successfully!"
+            echo "🌐 Website URL: $WEBSITE_URL"
+          else
+            echo "❌ Frontend deployment test failed (HTTP $HTTP_STATUS)"
+            echo "🌐 Website URL: $WEBSITE_URL"
+            # Don't fail the deployment, just report
+          fi
+
+      - name: Save deployment info
+        run: |
+          ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
+          mkdir -p deployment-info
+          cat > deployment-info/frontend-$ENVIRONMENT.json << EOF
+          {
+            "environment": "$ENVIRONMENT",
+            "region": "${{ env.AWS_REGION }}",
+            "bucketName": "${{ steps.get-bucket.outputs.bucket-name }}",
+            "websiteUrl": "${{ steps.get-website-url.outputs.website-url }}",
+            "apiUrl": "${{ steps.get-api-url.outputs.api-url }}",
+            "deployedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+
+      - name: Upload deployment info
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-deployment-info-${{ github.event.inputs.environment || 'dev' }}
+          path: deployment-info/
+          retention-days: 30

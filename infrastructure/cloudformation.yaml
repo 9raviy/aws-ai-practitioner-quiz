@@ -180,8 +180,8 @@ Resources:
         Uri: !Sub 'arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${HealthCheckFunction.Arn}/invocations'
       MethodResponses:
         - StatusCode: 200
-          ResponseHeaders:
-            Access-Control-Allow-Origin: true
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: false
 
   # API Gateway Resource for Proxy (catch-all)
   ProxyResource:
@@ -253,11 +253,17 @@ Resources:
       SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${QuizAPI}/*/GET/health'
 
 Outputs:
-  APIEndpoint:
+  ApiUrl:
     Description: 'API Gateway Endpoint URL'
     Value: !Sub 'https://${QuizAPI}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
     Export:
       Name: !Sub '${Environment}-quiz-api-endpoint'
+
+  APIEndpoint:
+    Description: 'API Gateway Endpoint URL (alias)'
+    Value: !Sub 'https://${QuizAPI}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+    Export:
+      Name: !Sub '${Environment}-quiz-api-endpoint-alias'
 
   HealthEndpoint:
     Description: 'Health Check Endpoint URL'

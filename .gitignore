@@ -10,16 +10,33 @@ yarn-error.log*
 **/dist/
 .next/
 
-# Environment variables
+# Environment variables - SECURITY CRITICAL
 .env
 .env.local
+.env.development
 .env.development.local
 .env.test.local
+.env.production
 .env.production.local
 
-# AWS
+# AWS Credentials and Configuration - NEVER COMMIT
 .aws/
 aws-exports.js
+**/aws-config.json
+**/credentials.json
+
+# Deployment artifacts - Contains sensitive info
+**/*deployment*.zip
+**/*deployment*.tar.gz
+**/lambda-deploy/
+**/deployment-info/
+**/bucket-policy.json
+test-response.json
+**/test-response*.json
+
+# Local development files
+.vscode/settings.json
+.idea/
 
 # Logs
 logs
