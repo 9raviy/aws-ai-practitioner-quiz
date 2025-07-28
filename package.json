@@ -1,0 +1,41 @@
+{
+  "name": "aws-ai-practitioner-quiz",
+  "version": "1.0.0",
+  "description": "AWS Bedrock-powered adaptive quiz for AI Practitioner certification",
+  "main": "index.js",
+  "scripts": {
+    "dev": "npm run dev --workspace=backend",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "lint": "npm run lint --workspaces",
+    "deploy:backend": "cd backend && npm run deploy",
+    "deploy:frontend": "cd frontend && npm run deploy",
+    "deploy:infra": "cd infrastructure && npm run deploy"
+  },
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "keywords": [
+    "aws",
+    "bedrock",
+    "claude",
+    "quiz",
+    "ai-practitioner",
+    "react",
+    "lambda",
+    "serverless"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YOUR_USERNAME/aws-ai-practitioner-quiz.git"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "eslint": "^8.0.0",
+    "prettier": "^3.0.0"
+  }
+}
