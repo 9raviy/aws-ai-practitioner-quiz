@@ -19,16 +19,18 @@
 ## 📱 **Application Screenshots**
 
 ### 🏠 Home Page & Quiz Start
-*[Screenshot placeholder - Quiz welcome screen with difficulty selection]*
+<img width="1992" height="1102" alt="image" src="https://github.com/user-attachments/assets/2127e999-9558-4bed-a0ce-a716b11b45a8" />
 
 ### ❓ Interactive Quiz Interface
-*[Screenshot placeholder - Question display with multiple choice options]*
+<img width="2023" height="1095" alt="image" src="https://github.com/user-attachments/assets/4d44a1f7-0ee8-44e4-aeaf-3e50a3b5d29a" />
 
 ### ✅ Real-time Feedback & Explanations
-*[Screenshot placeholder - Answer feedback with detailed explanations]*
+<img width="1330" height="873" alt="image" src="https://github.com/user-attachments/assets/038136d0-47a7-4766-9193-3752f86b24c3" />
+
 
 ### 📊 Progress Tracking & Results
-*[Screenshot placeholder - Progress indicators and final score]*
+<img width="1818" height="1047" alt="image" src="https://github.com/user-attachments/assets/280b71b4-0dc3-4890-ad34-1e7d35afdd39" />
+
 
 ---
 
