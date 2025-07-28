@@ -94,7 +94,7 @@ Resources:
         Variables:
           NODE_ENV: !Ref Environment
           DYNAMODB_TABLE_NAME: !Ref QuizSessionsTable
-          AWS_REGION: !Ref BedrockRegion
+          BEDROCK_REGION: !Ref BedrockRegion
       Role: !GetAtt LambdaExecutionRole.Arn
       Timeout: 30
       MemorySize: 512
@@ -126,7 +126,7 @@ Resources:
         Variables:
           NODE_ENV: !Ref Environment
           DYNAMODB_TABLE_NAME: !Ref QuizSessionsTable
-          AWS_REGION: !Ref BedrockRegion
+          BEDROCK_REGION: !Ref BedrockRegion
       Role: !GetAtt LambdaExecutionRole.Arn
       Timeout: 10
       MemorySize: 256

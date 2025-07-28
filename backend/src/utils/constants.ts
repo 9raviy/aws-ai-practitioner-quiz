@@ -3,7 +3,7 @@
  */
 
 export const AWS_CONFIG = {
-  REGION: "us-west-2",
+  REGION: process.env.BEDROCK_REGION || "us-west-2",
   BEDROCK_MODEL_ID: "anthropic.claude-3-5-sonnet-20241022-v2:0",
   MAX_TOKENS: 2000,
   TEMPERATURE: 0.7,

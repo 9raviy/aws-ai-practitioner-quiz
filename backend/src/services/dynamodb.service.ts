@@ -15,9 +15,9 @@ export class DynamoDBService {
   private tableName: string;
 
   constructor() {
-    // Initialize DynamoDB client
+    // Initialize DynamoDB client - use the region where the stack is deployed
     const dynamoClient = new DynamoDBClient({
-      region: process.env.AWS_REGION || 'us-west-2',
+      region: process.env.AWS_REGION || 'us-east-1',
     });
     
     this.client = DynamoDBDocumentClient.from(dynamoClient);
