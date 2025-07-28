@@ -86,6 +86,14 @@ export class QuizService {
         const difficulty = this.sessionService.getAdaptiveDifficulty(session);
         const excludeQuestionIds = session.answers.map(answer => answer.questionId);
         question = await this.generateQuestion(difficulty, excludeQuestionIds);
+        
+        // Update the session with the current question
+        await this.sessionService.setCurrentQuestion(sessionId, question);
+        
+        logger.info("Session updated with new current question", {
+          sessionId,
+          questionId: question.id,
+        });
       }
 
       const progress = {

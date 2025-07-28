@@ -150,6 +150,27 @@ export class SessionService {
   }
 
   /**
+   * Update the current question in a session
+   */
+  async setCurrentQuestion(sessionId: string, question: QuizQuestion): Promise<void> {
+    if (this.useInMemory) {
+      const session = this.sessions.get(sessionId);
+      if (session) {
+        session.currentQuestion = question;
+        logger.info("Current question updated in session", { 
+          sessionId, 
+          questionId: question.id 
+        });
+      } else {
+        logger.warn("Cannot set current question - session not found", { sessionId });
+      }
+    } else {
+      // TODO: Add DynamoDB implementation when needed
+      throw new Error("DynamoDB setCurrentQuestion not implemented yet");
+    }
+  }
+
+  /**
    * Get adaptive difficulty for next question
    */
   getAdaptiveDifficulty(session: QuizSession): QuizDifficulty {
