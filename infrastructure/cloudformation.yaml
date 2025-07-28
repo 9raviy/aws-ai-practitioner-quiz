@@ -319,11 +319,11 @@ Resources:
             ResponseCode: 200
             ResponsePagePath: /index.html
         PriceClass: PriceClass_100
-        Tags:
-          - Key: Environment
-            Value: !Ref Environment
-          - Key: Application
-            Value: 'ai-practitioner-quiz'
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: 'ai-practitioner-quiz'
 
   # Bucket Policy for CloudFront
   FrontendBucketPolicy:
