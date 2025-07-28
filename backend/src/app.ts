@@ -21,6 +21,9 @@ import { requestLogger } from "./middleware/logging.middleware";
 const app = express();
 const PORT = process.env.PORT || 3001; // Default to 3001 instead of 3000
 
+// Trust proxy when running behind AWS API Gateway
+app.set('trust proxy', true);
+
 // Security middleware
 app.use(
   helmet({
