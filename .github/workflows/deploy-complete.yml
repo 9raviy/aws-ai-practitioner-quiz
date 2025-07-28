@@ -51,6 +51,30 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Clean up conflicting stacks
+        run: |
+          ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
+          
+          echo "🧹 Checking for conflicting stacks..."
+          
+          # Delete any failed stacks
+          FAILED_STACK="ai-quiz-${ENVIRONMENT}"
+          if aws cloudformation describe-stacks --stack-name $FAILED_STACK 2>/dev/null; then
+            STACK_STATUS=$(aws cloudformation describe-stacks --stack-name $FAILED_STACK --query 'Stacks[0].StackStatus' --output text)
+            if [[ "$STACK_STATUS" == *"ROLLBACK"* ]] || [[ "$STACK_STATUS" == *"FAILED"* ]]; then
+              echo "Deleting failed stack: $FAILED_STACK (Status: $STACK_STATUS)"
+              aws cloudformation delete-stack --stack-name $FAILED_STACK
+              aws cloudformation wait stack-delete-complete --stack-name $FAILED_STACK
+            fi
+          fi
+          
+          # Delete conflicting minimal stack if it exists
+          if aws cloudformation describe-stacks --stack-name ai-quiz-minimal 2>/dev/null; then
+            echo "Deleting conflicting stack: ai-quiz-minimal"
+            aws cloudformation delete-stack --stack-name ai-quiz-minimal
+            aws cloudformation wait stack-delete-complete --stack-name ai-quiz-minimal
+          fi
+
       - name: Deploy Infrastructure
         run: |
           ENVIRONMENT=${{ github.event.inputs.environment || 'dev' }}
