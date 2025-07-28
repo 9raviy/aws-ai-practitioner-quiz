@@ -90,9 +90,8 @@ export class SessionService {
     if (this.useInMemory) {
       return this.updateSessionInMemory(sessionId, answer, currentQuestion, nextQuestion);
     } else {
-      // TODO: Update DynamoDB method signature to match
-      throw new Error("DynamoDB update with nextQuestion not implemented yet");
-      // return this.dynamoDB.updateSession(sessionId, answer, currentQuestion, nextQuestion);
+      // DynamoDB implementation
+      return this.dynamoDB.updateSession(sessionId, answer, currentQuestion, nextQuestion);
     }
   }
 

@@ -118,7 +118,8 @@ export class DynamoDBService {
   async updateSession(
     sessionId: string,
     answer: UserAnswer,
-    currentQuestion: QuizQuestion
+    currentQuestion: QuizQuestion,
+    nextQuestion?: QuizQuestion
   ): Promise<QuizSession | null> {
     try {
       // First get the current session
@@ -135,9 +136,14 @@ export class DynamoDBService {
       currentSession.currentQuestionIndex++;
       currentSession.score = Math.round((currentSession.correctAnswers / currentSession.currentQuestionIndex) * 100);
       
+      // Check if quiz is completed
       if (currentSession.currentQuestionIndex >= currentSession.totalQuestions) {
         currentSession.isCompleted = true;
         currentSession.endTime = new Date();
+        currentSession.currentQuestion = undefined; // Clear current question
+      } else {
+        // Set the next question for the session
+        currentSession.currentQuestion = nextQuestion;
       }
 
       // Update in DynamoDB
@@ -150,7 +156,8 @@ export class DynamoDBService {
               correctAnswers = :correctAnswers,
               answers = :answers,
               isCompleted = :isCompleted,
-              endTime = :endTime
+              endTime = :endTime,
+              currentQuestion = :currentQuestion
         `,
         ExpressionAttributeValues: {
           ':currentQuestionIndex': currentSession.currentQuestionIndex,
@@ -159,6 +166,7 @@ export class DynamoDBService {
           ':answers': currentSession.answers,
           ':isCompleted': currentSession.isCompleted,
           ':endTime': currentSession.endTime ? currentSession.endTime.toISOString() : null,
+          ':currentQuestion': currentSession.currentQuestion || null,
         },
         ReturnValues: 'ALL_NEW',
       });
@@ -170,6 +178,7 @@ export class DynamoDBService {
         currentQuestionIndex: currentSession.currentQuestionIndex,
         score: currentSession.score,
         isCompleted: currentSession.isCompleted,
+        hasNextQuestion: !!nextQuestion,
       });
 
       return currentSession;
