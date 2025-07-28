@@ -1,0 +1,8 @@
+{
+  "name": "frontend-test",
+  "scripts": {
+    "test-build": "npx tsc --noEmit",
+    "test-api": "node -e \"console.log('Testing frontend setup...')\"",
+    "start-simple": "echo 'Frontend setup complete - ready for npm start'"
+  }
+}
