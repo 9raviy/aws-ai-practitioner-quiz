@@ -52,7 +52,10 @@ const QuizStart: React.FC = () => {
     try {
       const response = await apiService.startQuiz({
         difficulty,
-        totalQuestions: 10
+        userId: `user_${Date.now()}`, // Generate a simple user ID
+        preferences: {
+          timeLimit: 600 // 10 minutes
+        }
       });
 
       if (response.success && response.data) {

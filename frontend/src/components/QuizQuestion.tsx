@@ -79,10 +79,7 @@ const QuizQuestionComponent: React.FC = () => {
     setTimeSpent(0);
 
     try {
-      const response = await apiService.getQuestion({
-        sessionId,
-        questionNumber
-      });
+      const response = await apiService.getQuestion(sessionId);
 
       if (response.success && response.data) {
         setQuestion(response.data);
@@ -112,7 +109,7 @@ const QuizQuestionComponent: React.FC = () => {
       const response = await apiService.submitAnswer({
         sessionId,
         questionId: question.id,
-        selectedOption,
+        selectedAnswer: selectedOption,
         timeSpent
       });
 

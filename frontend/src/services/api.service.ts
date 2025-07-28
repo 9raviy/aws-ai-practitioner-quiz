@@ -8,20 +8,19 @@ import {
 } from '../types/quiz.types';
 
 interface StartQuizRequest {
-  difficulty: 'beginner' | 'intermediate' | 'advanced';
-  totalQuestions?: number;
+  difficulty?: 'beginner' | 'intermediate' | 'advanced';
+  userId?: string;
+  preferences?: {
+    domains?: string[];
+    timeLimit?: number;
+  };
 }
 
 interface SubmitAnswerRequest {
   sessionId: string;
   questionId: string;
-  selectedOption: number;
-  timeSpent: number;
-}
-
-interface GetQuestionRequest {
-  sessionId: string;
-  questionNumber: number;
+  selectedAnswer: number;
+  timeSpent?: number;
 }
 
 class ApiService {
@@ -30,7 +29,7 @@ class ApiService {
 
   constructor() {
     // Use environment variable or default to local development
-    this.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    this.baseURL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:3001';
     
     this.api = axios.create({
       baseURL: this.baseURL,
@@ -68,7 +67,7 @@ class ApiService {
   // Health check
   async healthCheck(): Promise<ApiResponse<{ status: string; timestamp: string }>> {
     try {
-      const response = await this.api.get('/health');
+      const response = await this.api.get('/api/v1/health');
       return response.data;
     } catch (error) {
       throw this.handleError(error);
@@ -78,7 +77,7 @@ class ApiService {
   // Start a new quiz session
   async startQuiz(request: StartQuizRequest): Promise<ApiResponse<QuizSession>> {
     try {
-      const response = await this.api.post('/quiz/start', request);
+      const response = await this.api.post('/api/v1/quiz/start', request);
       return response.data;
     } catch (error) {
       throw this.handleError(error);
@@ -86,14 +85,9 @@ class ApiService {
   }
 
   // Get a specific question
-  async getQuestion(request: GetQuestionRequest): Promise<ApiResponse<QuizQuestion>> {
+  async getQuestion(sessionId: string): Promise<ApiResponse<QuizQuestion>> {
     try {
-      const response = await this.api.get(`/quiz/question`, {
-        params: {
-          sessionId: request.sessionId,
-          questionNumber: request.questionNumber
-        }
-      });
+      const response = await this.api.get(`/api/v1/quiz/question/${sessionId}`);
       return response.data;
     } catch (error) {
       throw this.handleError(error);
@@ -108,7 +102,7 @@ class ApiService {
     nextQuestionNumber?: number;
   }>> {
     try {
-      const response = await this.api.post('/quiz/answer', request);
+      const response = await this.api.post('/api/v1/quiz/answer', request);
       return response.data;
     } catch (error) {
       throw this.handleError(error);
@@ -118,7 +112,7 @@ class ApiService {
   // Get quiz progress
   async getProgress(sessionId: string): Promise<ApiResponse<QuizProgress>> {
     try {
-      const response = await this.api.get(`/quiz/progress/${sessionId}`);
+      const response = await this.api.get(`/api/v1/quiz/progress/${sessionId}`);
       return response.data;
     } catch (error) {
       throw this.handleError(error);
@@ -128,7 +122,7 @@ class ApiService {
   // Get quiz results
   async getResults(sessionId: string): Promise<ApiResponse<QuizResults>> {
     try {
-      const response = await this.api.get(`/quiz/results/${sessionId}`);
+      const response = await this.api.get(`/api/v1/quiz/results/${sessionId}`);
       return response.data;
     } catch (error) {
       throw this.handleError(error);
