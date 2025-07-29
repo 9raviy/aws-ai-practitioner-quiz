@@ -1,0 +1,321 @@
+name: Deploy Development Environment
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  AWS_REGION: us-east-1
+  ENVIRONMENT: dev
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    name: Run Tests
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: |
+          frontend/package-lock.json
+          backend/package-lock.json
+
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Install backend dependencies
+      working-directory: ./backend
+      run: npm ci
+
+    - name: Build backend
+      working-directory: ./backend
+      run: npm run build
+
+    - name: Build frontend
+      working-directory: ./frontend
+      run: npm run build
+
+    - name: Run frontend tests
+      working-directory: ./frontend
+      run: npm test -- --coverage --watchAll=false
+
+    - name: Lint frontend
+      working-directory: ./frontend
+      run: npm run lint
+
+  deploy-infrastructure:
+    needs: test
+    runs-on: ubuntu-latest
+    name: Deploy Infrastructure
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Deploy CloudFormation stack
+      run: |
+        aws cloudformation deploy \
+          --template-file infrastructure/cloudformation.yaml \
+          --stack-name ai-quiz-${{ env.ENVIRONMENT }} \
+          --parameter-overrides \
+            Environment=${{ env.ENVIRONMENT }} \
+            BedrockRegion=us-west-2 \
+            UseCustomDomain=false \
+            EnableAPIKey=true \
+            RateLimitBurst=200 \
+            RateLimitRate=100 \
+          --capabilities CAPABILITY_IAM \
+          --region ${{ env.AWS_REGION }} \
+          --no-fail-on-empty-changeset
+
+  deploy-backend:
+    needs: deploy-infrastructure
+    runs-on: ubuntu-latest
+    name: Deploy Backend
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Install dependencies
+      working-directory: ./backend
+      run: npm ci --only=production
+
+    - name: Build backend
+      working-directory: ./backend
+      run: npm run build
+
+    - name: Create deployment package
+      working-directory: ./backend
+      run: |
+        # Create package directory with correct structure
+        mkdir -p lambda_package
+        
+        # Copy compiled files to root of package
+        cp -r dist/* lambda_package/
+        
+        # Copy production node_modules
+        cp -r node_modules lambda_package/node_modules
+        
+        # Copy package.json
+        cp package.json lambda_package/
+        
+        # Create zip file
+        cd lambda_package
+        zip -r ../backend-deployment.zip .
+        cd ..
+
+    - name: Deploy to Lambda
+      working-directory: ./backend
+      run: |
+        FUNCTION_NAME="${{ env.ENVIRONMENT }}-quiz-api"
+        
+        aws lambda update-function-code \
+          --function-name $FUNCTION_NAME \
+          --zip-file fileb://backend-deployment.zip \
+          --region ${{ env.AWS_REGION }}
+        
+        # Wait for function to be ready
+        aws lambda wait function-updated \
+          --function-name $FUNCTION_NAME \
+          --region ${{ env.AWS_REGION }}
+
+    - name: Test backend deployment
+      run: |
+        # Get API Gateway URL from CloudFormation
+        API_URL=$(aws cloudformation describe-stacks \
+          --stack-name ai-quiz-${{ env.ENVIRONMENT }} \
+          --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" \
+          --output text \
+          --region ${{ env.AWS_REGION }})
+        
+        echo "Testing health endpoint: $API_URL/health"
+        
+        # Test health endpoint
+        for i in {1..10}; do
+          if curl -f "$API_URL/health"; then
+            echo "Health check passed!"
+            break
+          else
+            echo "Health check failed, attempt $i/10"
+            sleep 30
+          fi
+        done
+
+  deploy-frontend:
+    needs: deploy-infrastructure
+    runs-on: ubuntu-latest
+    name: Deploy Frontend
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Install dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Get API URL from CloudFormation
+      id: get-api-url
+      run: |
+        API_URL=$(aws cloudformation describe-stacks \
+          --stack-name ai-quiz-${{ env.ENVIRONMENT }} \
+          --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" \
+          --output text \
+          --region ${{ env.AWS_REGION }})
+        echo "api-url=$API_URL" >> $GITHUB_OUTPUT
+
+    - name: Build frontend
+      working-directory: ./frontend
+      env:
+        VITE_API_URL: ${{ steps.get-api-url.outputs.api-url }}
+        VITE_DEBUG_MODE: true
+        VITE_ENABLE_ANALYTICS: false
+      run: npm run build
+
+    - name: Deploy to S3
+      working-directory: ./frontend
+      run: |
+        # Get S3 bucket name from CloudFormation
+        BUCKET_NAME=$(aws cloudformation describe-stacks \
+          --stack-name ai-quiz-${{ env.ENVIRONMENT }} \
+          --query "Stacks[0].Outputs[?OutputKey=='S3BucketName'].OutputValue" \
+          --output text \
+          --region ${{ env.AWS_REGION }})
+        
+        echo "Deploying to bucket: $BUCKET_NAME"
+        
+        # Sync build files to S3
+        aws s3 sync dist/ s3://$BUCKET_NAME/ --delete
+
+    - name: Invalidate CloudFront
+      run: |
+        # Get CloudFront distribution ID from CloudFormation
+        DISTRIBUTION_ID=$(aws cloudformation describe-stacks \
+          --stack-name ai-quiz-${{ env.ENVIRONMENT }} \
+          --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDistributionId'].OutputValue" \
+          --output text \
+          --region ${{ env.AWS_REGION }})
+        
+        echo "Invalidating CloudFront distribution: $DISTRIBUTION_ID"
+        
+        # Create invalidation
+        aws cloudfront create-invalidation \
+          --distribution-id $DISTRIBUTION_ID \
+          --paths "/*"
+
+  integration-test:
+    needs: [deploy-backend, deploy-frontend]
+    runs-on: ubuntu-latest
+    name: Integration Tests
+    
+    steps:
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Run integration tests
+      run: |
+        # Get website URL from CloudFormation
+        WEBSITE_URL=$(aws cloudformation describe-stacks \
+          --stack-name ai-quiz-${{ env.ENVIRONMENT }} \
+          --query "Stacks[0].Outputs[?OutputKey=='WebsiteUrl'].OutputValue" \
+          --output text \
+          --region ${{ env.AWS_REGION }})
+        
+        # Get API URL from CloudFormation
+        API_URL=$(aws cloudformation describe-stacks \
+          --stack-name ai-quiz-${{ env.ENVIRONMENT }} \
+          --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" \
+          --output text \
+          --region ${{ env.AWS_REGION }})
+        
+        echo "Testing website: $WEBSITE_URL"
+        echo "Testing API: $API_URL"
+        
+        # Test website is accessible
+        if curl -f "$WEBSITE_URL"; then
+          echo "✅ Website is accessible"
+        else
+          echo "❌ Website is not accessible"
+          exit 1
+        fi
+        
+        # Test API health endpoint
+        if curl -f "$API_URL/health"; then
+          echo "✅ API health check passed"
+        else
+          echo "❌ API health check failed"
+          exit 1
+        fi
+        
+        # Test API quiz endpoint (should return 401 without API key)
+        if curl -f "$API_URL/api/quiz/start" 2>/dev/null; then
+          echo "❌ API quiz endpoint should require authentication"
+          exit 1
+        else
+          echo "✅ API quiz endpoint properly requires authentication"
+        fi
+
+  notify:
+    needs: [integration-test]
+    runs-on: ubuntu-latest
+    name: Notify Success
+    if: always()
+    
+    steps:
+    - name: Get deployment info
+      if: success()
+      run: |
+        echo "🚀 Development deployment completed successfully!"
+        echo "Environment: ${{ env.ENVIRONMENT }}"
+        echo "Commit: ${{ github.sha }}"
+        echo "Triggered by: ${{ github.actor }}"
