@@ -176,7 +176,8 @@ Please respond in this exact JSON format:
   "aiPractitionerDomain": "One of: Machine Learning Fundamentals, AI Services, Responsible AI, or Generative AI"
 }
 
-The correctAnswer should be the index (0-3) of the correct option in the options array.`;
+The correctAnswer should be the index (0-3) of the correct option in the options array.
+IMPORTANT: Vary the position of the correct answer - don't always put it first! The correct answer can be at any position (0, 1, 2, or 3).`;
 
     const excludeInstructions =
       request.excludeQuestionIds && request.excludeQuestionIds.length > 0
@@ -242,11 +243,24 @@ The correctAnswer should be the index (0-3) of the correct option in the options
         throw new Error("Invalid question format received from Claude");
       }
 
+      // Shuffle the options to randomize answer positions
+      const { shuffledOptions, newCorrectAnswer } = this.shuffleOptions(
+        questionData.options,
+        questionData.correctAnswer
+      );
+
+      logger.info("Options shuffled", {
+        originalCorrectAnswer: questionData.correctAnswer,
+        newCorrectAnswer: newCorrectAnswer,
+        originalOptions: questionData.options,
+        shuffledOptions: shuffledOptions,
+      });
+
       return {
         id: this.generateQuestionId(),
         question: questionData.question,
-        options: questionData.options,
-        correctAnswer: questionData.correctAnswer,
+        options: shuffledOptions,
+        correctAnswer: newCorrectAnswer,
         explanation: questionData.explanation || "No explanation provided",
         difficulty:
           this.mapToDifficulty(questionData.difficulty) ||
@@ -297,5 +311,33 @@ The correctAnswer should be the index (0-3) of the correct option in the options
       console.error("Bedrock connection test failed:", error);
       return false;
     }
+  }
+
+  /**
+   * Shuffle the answer options and update the correct answer index
+   */
+  private shuffleOptions(
+    options: string[],
+    correctAnswerIndex: number
+  ): { shuffledOptions: string[]; newCorrectAnswer: number } {
+    // Create array of indices to track original positions
+    const indices = [0, 1, 2, 3];
+    
+    // Fisher-Yates shuffle algorithm
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+    
+    // Create shuffled options based on shuffled indices
+    const shuffledOptions = indices.map(index => options[index]);
+    
+    // Find where the correct answer ended up
+    const newCorrectAnswer = indices.indexOf(correctAnswerIndex);
+    
+    return {
+      shuffledOptions,
+      newCorrectAnswer
+    };
   }
 }
