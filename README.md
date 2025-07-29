@@ -184,6 +184,80 @@ As a first step can you please generate a list of workflow for this project and 
 
 **Result:** Copilot generated a comprehensive project structure with proper separation of concerns, optimized build configurations, and production-ready package dependencies.
 
+### **🧩 Core Logic Development**
+
+**Session Management Prompts:**
+```
+"Create a DynamoDB service for managing quiz sessions with the following features:
+- Session creation with unique IDs
+- Progress tracking (current question, score, time spent)
+- Session persistence across browser refreshes
+- Automatic cleanup of expired sessions
+- Support for concurrent sessions per user"
+
+"Implement session state management that tracks:
+- Current question index and total questions
+- User answers with timestamps
+- Adaptive difficulty progression
+- Time spent per question and total quiz time"
+```
+
+**Quiz Generation Logic:**
+```
+"Build an intelligent quiz engine that:
+- Generates questions dynamically using AWS Bedrock
+- Implements adaptive difficulty based on user performance
+- Ensures no question repetition within a session
+- Balances questions across AWS AI service domains
+- Validates question quality and format before serving"
+
+"Create a question shuffling algorithm that:
+- Randomizes answer option positions
+- Tracks correct answer index after shuffling
+- Prevents patterns in correct answer placement
+- Maintains question integrity during randomization"
+```
+
+**Advanced Backend Features:**
+```
+"Implement comprehensive error handling for:
+- AWS Bedrock API failures and rate limiting
+- DynamoDB connection issues and timeout handling
+- Invalid user input validation and sanitization
+- Session expiration and cleanup scenarios
+- JSON parsing errors from AI responses"
+
+"Build a robust scoring system that:
+- Calculates real-time percentage scores
+- Tracks accuracy across different difficulty levels
+- Provides detailed performance analytics
+- Generates personalized feedback based on results
+- Recommends next difficulty level progression"
+```
+
+**Database Schema Design:**
+```
+"Design DynamoDB table structure for quiz sessions:
+- Partition key: sessionId (unique identifier)
+- Sort key: timestamp (for session ordering)
+- Attributes: userId, difficulty, currentQuestionIndex, totalQuestions
+- TTL: automatic cleanup after 24 hours
+- GSI: userId index for user-specific queries"
+
+"Implement data serialization handling:
+- Convert Date objects to ISO strings for DynamoDB storage
+- Handle nested object serialization for complex question data
+- Ensure proper deserialization when retrieving session data
+- Validate data integrity during storage and retrieval operations"
+```
+
+**Key Implementation Results:**
+- **Session Management**: Robust session handling with automatic cleanup and persistence
+- **Question Generation**: AI-powered dynamic question creation with quality validation
+- **Answer Randomization**: Sophisticated shuffling algorithm preventing answer patterns
+- **Error Resilience**: Comprehensive error handling across all service integrations
+- **Performance Optimization**: Efficient database queries and caching strategies
+
 ### **⚡ Accelerated Backend Development**
 
 **Service Creation Prompts:**

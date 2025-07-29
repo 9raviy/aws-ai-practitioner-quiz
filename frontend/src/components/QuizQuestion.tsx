@@ -70,22 +70,30 @@ const QuizQuestionComponent: React.FC = () => {
 
   // Helper function to format explanation text for better readability
   const formatExplanation = (explanation: string) => {
+    // First, unescape the text by replacing literal \n with actual newlines and removing extra escapes
+    let unescapedText = explanation
+      .replace(/\\n/g, '\n')  // Replace literal \n with actual newlines
+      .replace(/\\"/g, '"')   // Replace escaped quotes
+      .replace(/\\\\/g, '\\') // Replace double backslashes with single backslash
+      .trim();
+
     // Try to split the explanation into main content and option explanations
     const splitPatterns = [
       /The other options are (suboptimal|incorrect) because:/i,
       /Why the other options are wrong:/i,
-      /Other options are incorrect:/i
+      /Other options are incorrect:/i,
+      /Why other options are wrong:/i
     ];
     
-    let parts: string[] = [explanation];
+    let parts: string[] = [unescapedText];
     let splitIndex = -1;
     
     // Try each pattern to find where options explanations start
     for (const pattern of splitPatterns) {
-      const tempParts = explanation.split(pattern);
+      const tempParts = unescapedText.split(pattern);
       if (tempParts.length > 1) {
         parts = tempParts;
-        splitIndex = explanation.search(pattern);
+        splitIndex = unescapedText.search(pattern);
         break;
       }
     }
@@ -94,7 +102,7 @@ const QuizQuestionComponent: React.FC = () => {
       // No option explanations found, return as is but formatted nicely
       return (
         <Typography variant="body1" sx={{ lineHeight: 1.6, whiteSpace: 'pre-line' }}>
-          {explanation}
+          {unescapedText}
         </Typography>
       );
     }
@@ -124,7 +132,7 @@ const QuizQuestionComponent: React.FC = () => {
               if (!match) return null;
               
               const optionLetter = match[1];
-              const explanation = match[2].trim();
+              const explanationText = match[2].trim();
               
               return (
                 <Box key={index} sx={{ 
@@ -149,7 +157,7 @@ const QuizQuestionComponent: React.FC = () => {
                     flex: 1,
                     pt: 0.5
                   }}>
-                    {explanation}
+                    {explanationText}
                   </Typography>
                 </Box>
               );
