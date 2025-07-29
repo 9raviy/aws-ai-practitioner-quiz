@@ -70,12 +70,30 @@ const QuizQuestionComponent: React.FC = () => {
 
   // Helper function to format explanation text for better readability
   const formatExplanation = (explanation: string) => {
+    console.log('formatExplanation input:', explanation);
+    console.log('Original explanation length:', explanation.length);
+    
+    if (!explanation || typeof explanation !== 'string') {
+      console.warn('Invalid explanation provided:', explanation);
+      return <Typography variant="body1">No explanation available</Typography>;
+    }
+    
     // First, unescape the text by replacing literal \n with actual newlines and removing extra escapes
     let unescapedText = explanation
-      .replace(/\\n/g, '\n')  // Replace literal \n with actual newlines
-      .replace(/\\"/g, '"')   // Replace escaped quotes
-      .replace(/\\\\/g, '\\') // Replace double backslashes with single backslash
+      .replace(/\\n/g, '\n')        // Replace literal \n with actual newlines
+      .replace(/\\"/g, '"')         // Replace escaped quotes
+      .replace(/\\\\/g, '\\')       // Replace double backslashes with single backslash
+      .replace(/\\t/g, '\t')        // Replace literal \t with actual tabs
+      .replace(/\\\//g, '/')        // Replace escaped forward slashes
       .trim();
+
+    console.log('After unescaping:', unescapedText);
+    console.log('Unescaped text length:', unescapedText.length);
+    
+    // Additional safety check for very long texts
+    if (unescapedText.length > 5000) {
+      console.warn('Very long explanation detected, might cause rendering issues');
+    }
 
     // Try to split the explanation into main content and option explanations
     const splitPatterns = [
@@ -100,10 +118,23 @@ const QuizQuestionComponent: React.FC = () => {
 
     if (parts.length === 1) {
       // No option explanations found, return as is but formatted nicely
+      console.log('Rendering simple explanation, length:', unescapedText.length);
       return (
-        <Typography variant="body1" sx={{ lineHeight: 1.6, whiteSpace: 'pre-line' }}>
-          {unescapedText}
-        </Typography>
+        <Box sx={{ width: '100%', overflow: 'hidden' }}>
+          <Typography 
+            variant="body1" 
+            sx={{ 
+              lineHeight: 1.6, 
+              whiteSpace: 'pre-line',
+              wordWrap: 'break-word',
+              overflow: 'visible',
+              maxWidth: '100%',
+              display: 'block'
+            }}
+          >
+            {unescapedText}
+          </Typography>
+        </Box>
       );
     }
 
@@ -114,9 +145,20 @@ const QuizQuestionComponent: React.FC = () => {
     const optionMatches = optionSection.match(/- Option [A-D]:[^-]+/gi) || [];
     
     return (
-      <Box>
+      <Box sx={{ width: '100%' }}>
         {/* Main explanation */}
-        <Typography variant="body1" sx={{ lineHeight: 1.6, mb: 2, whiteSpace: 'pre-line' }}>
+        <Typography 
+          variant="body1" 
+          sx={{ 
+            lineHeight: 1.6, 
+            mb: 2, 
+            whiteSpace: 'pre-line',
+            wordWrap: 'break-word',
+            overflow: 'visible',
+            maxWidth: '100%',
+            display: 'block'
+          }}
+        >
           {mainExplanation}
         </Typography>
         
@@ -196,6 +238,12 @@ const QuizQuestionComponent: React.FC = () => {
         // Extract the question from the nested response structure
         const questionData = response.data.question || response.data;
         
+        // Debug the explanation specifically
+        if (questionData && typeof questionData === 'object' && 'explanation' in questionData) {
+          console.log('Full explanation received:', questionData.explanation);
+          console.log('Explanation length:', questionData.explanation?.length);
+        }
+        
         // Type check and set the question
         if (questionData && typeof questionData === 'object' && 'id' in questionData) {
           setQuestion(questionData as QuizQuestion);
@@ -236,6 +284,11 @@ const QuizQuestionComponent: React.FC = () => {
       });
 
       if (response.success && response.data) {
+        console.log('Submit answer response:', response.data);
+        if (response.data.explanation) {
+          console.log('Feedback explanation received:', response.data.explanation);
+          console.log('Feedback explanation length:', response.data.explanation.length);
+        }
         setFeedback(response.data);
         setShowFeedback(true);
       } else {
@@ -504,13 +557,29 @@ const QuizQuestionComponent: React.FC = () => {
               </Alert>
 
               {feedback.explanation && (
-                <Paper sx={{ p: 3, bgcolor: 'info.50' }}>
+                <Paper sx={{ 
+                  p: 3, 
+                  bgcolor: 'info.50',
+                  width: '100%',
+                  overflow: 'visible',
+                  minHeight: 'auto',
+                  maxHeight: 'none'
+                }}>
                   <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <QuestionMark color="info" />
                     Explanation
                   </Typography>
                   <Divider sx={{ mb: 2 }} />
-                  {formatExplanation(feedback.explanation)}
+                  <Box sx={{ 
+                    width: '100%', 
+                    overflow: 'visible',
+                    '& *': { 
+                      maxWidth: '100% !important',
+                      overflow: 'visible !important'
+                    }
+                  }}>
+                    {formatExplanation(feedback.explanation)}
+                  </Box>
                 </Paper>
               )}
             </CardContent>
