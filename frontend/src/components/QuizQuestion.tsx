@@ -307,22 +307,29 @@ const QuizQuestionComponent: React.FC = () => {
   return (
     <Box
       sx={{
-        width: '100vw',
+        width: '100%',
         minHeight: '100vh',
         bgcolor: 'background.default',
-        px: { xs: 0, md: 4 },
-        py: { xs: 2, md: 4 },
+        px: { xs: 1, sm: 2, md: 3 },
+        py: { xs: 2, md: 3 },
         boxSizing: 'border-box',
+        overflowX: 'hidden',
       }}
     >
       {/* Progress Bar */}
-      <Card sx={{ mb: 3, maxWidth: 1600, mx: 'auto', borderRadius: 4, boxShadow: 3 }}>
+      <Card sx={{ 
+        mb: 3, 
+        maxWidth: { xs: '100%', sm: 600, md: 800, lg: 1000 }, 
+        mx: 'auto', 
+        borderRadius: 3, 
+        boxShadow: 2 
+      }}>
         <CardContent sx={{ pb: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            <Typography variant="h6">
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, flexWrap: 'wrap', gap: 1 }}>
+            <Typography variant="h6" sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}>
               Question {feedback?.sessionProgress ? feedback.sessionProgress.currentQuestionIndex : currentQuestionNumber} of {feedback?.sessionProgress ? feedback.sessionProgress.totalQuestions : totalQuestions}
             </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
               {question?.difficulty && (
                 <Chip 
                   label={question.difficulty} 
@@ -354,41 +361,42 @@ const QuizQuestionComponent: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Fluidic Two-Panel Layout */}
+      {/* Responsive Layout */}
       <Box
         sx={{
           display: 'flex',
           flexDirection: { xs: 'column', lg: showFeedback ? 'row' : 'column' },
-          gap: 4,
-          maxWidth: 1600,
+          gap: { xs: 2, md: 3 },
+          maxWidth: { xs: '100%', sm: 600, md: 800, lg: 1000 },
           mx: 'auto',
           width: '100%',
         }}
       >
-        {/* Left Panel - Question and Options */}
+        {/* Question Panel */}
         <Card
           sx={{
-            flex: showFeedback ? { xs: 1, lg: '1 1 60%' } : 1,
+            flex: showFeedback ? { xs: 1, lg: '1 1 55%' } : 1,
             width: '100%',
             minWidth: 0,
-            borderRadius: 4,
+            borderRadius: 3,
             boxShadow: 2,
-            mx: showFeedback ? 0 : 'auto',
             bgcolor: 'background.paper',
+            maxWidth: showFeedback ? 'none' : { xs: '100%', sm: 600, md: 700 },
+            mx: showFeedback ? 0 : 'auto',
           }}
         >
-          <CardContent sx={{ p: { xs: 2, md: 5 } }}>
+          <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
             {/* Question Header */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
               <QuestionMark color="primary" />
-              <Typography variant="h5" component="h2">
+              <Typography variant="h5" component="h2" sx={{ fontSize: { xs: '1.25rem', md: '1.5rem' } }}>
                 Question {currentQuestionNumber}
               </Typography>
             </Box>
 
             {/* Question Text */}
-            <Paper sx={{ p: { xs: 2, md: 3 }, mb: 4, bgcolor: 'primary.50' }}>
-              <Typography variant="h6" sx={{ lineHeight: 1.6 }}>
+            <Paper sx={{ p: { xs: 2, md: 3 }, mb: 3, bgcolor: 'primary.50' }}>
+              <Typography variant="h6" sx={{ lineHeight: 1.6, fontSize: { xs: '1rem', md: '1.25rem' } }}>
                 {typeof question?.question === 'string' ? question.question : 'Question data unavailable'}
               </Typography>
             </Paper>
@@ -405,7 +413,12 @@ const QuizQuestionComponent: React.FC = () => {
                   value={index.toString()}
                   control={<Radio />}
                   label={
-                    <Typography variant="body1" sx={{ py: 1 }}>
+                    <Typography variant="body1" sx={{ 
+                      py: 1, 
+                      fontSize: { xs: '0.9rem', md: '1rem' },
+                      wordBreak: 'break-word',
+                      hyphens: 'auto'
+                    }}>
                       {option}
                     </Typography>
                   }
@@ -418,26 +431,32 @@ const QuizQuestionComponent: React.FC = () => {
                         (index === feedback?.correctAnswer ? 'success.main' : 'divider')) : 
                       'divider',
                     borderRadius: 2,
-                    p: 2,
+                    p: { xs: 1.5, md: 2 },
                     mb: 1,
+                    width: '100%',
+                    margin: '0 0 8px 0',
                     bgcolor: showFeedback && index === selectedOption ? 
                       (feedback?.isCorrect ? 'success.50' : 'error.50') : 
                       (showFeedback && index === feedback?.correctAnswer ? 'success.100' : 'background.paper'),
-                    '&:hover': !showFeedback ? { borderColor: 'primary.main' } : {}
+                    '&:hover': !showFeedback ? { borderColor: 'primary.main' } : {},
+                    '& .MuiFormControlLabel-label': {
+                      width: '100%',
+                      wordWrap: 'break-word'
+                    }
                   }}
                 />
               ))}
             </RadioGroup>
 
             {/* Action Buttons */}
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: { xs: 3, md: 4 } }}>
               {!showFeedback ? (
                 <Button
                   variant="contained"
                   size="large"
                   onClick={submitAnswer}
                   disabled={selectedOption === -1 || loading.isLoading}
-                  sx={{ px: 4, py: 2 }}
+                  sx={{ px: { xs: 3, md: 4 }, py: { xs: 1.5, md: 2 } }}
                 >
                   Submit Answer
                 </Button>
@@ -447,7 +466,7 @@ const QuizQuestionComponent: React.FC = () => {
                   size="large"
                   onClick={nextQuestion}
                   endIcon={feedback?.nextQuestion && !feedback.isQuizCompleted ? <NavigateNext /> : <Assessment />}
-                  sx={{ px: 4, py: 2 }}
+                  sx={{ px: { xs: 3, md: 4 }, py: { xs: 1.5, md: 2 } }}
                 >
                   {feedback?.nextQuestion && !feedback.isQuizCompleted ? 'Next Question' : 'View Results'}
                 </Button>
@@ -456,33 +475,33 @@ const QuizQuestionComponent: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Right Panel - Feedback and Explanation (only shown when feedback is available) */}
+        {/* Explanation Panel */}
         {showFeedback && feedback && (
           <Card
             sx={{
-              flex: { xs: 1, lg: '1 1 40%' },
+              flex: { xs: 1, lg: '1 1 45%' },
               width: '100%',
               minWidth: 0,
-              borderRadius: 4,
+              borderRadius: 3,
               boxShadow: 2,
               position: { lg: 'sticky' },
-              top: { lg: 32 },
+              top: { lg: 24 },
               bgcolor: 'background.paper',
-              maxHeight: { lg: 'calc(100vh - 120px)' },
+              maxHeight: { lg: 'calc(100vh - 100px)' },
               overflowY: { lg: 'auto' },
             }}
           >
-            <CardContent sx={{ p: { xs: 2, md: 5 } }}>
+            <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
               <Alert 
                 severity={feedback.isCorrect ? 'success' : 'error'}
                 icon={feedback.isCorrect ? <CheckCircle /> : <Cancel />}
                 sx={{ mb: 3 }}
               >
-                <Typography variant="h6">
+                <Typography variant="h6" sx={{ fontSize: { xs: '1.1rem', md: '1.25rem' } }}>
                   {feedback.isCorrect ? 'Correct!' : 'Incorrect'}
                 </Typography>
                 {!feedback.isCorrect && feedback.correctAnswer !== undefined && (
-                  <Typography variant="body2" sx={{ mt: 1 }}>
+                  <Typography variant="body2" sx={{ mt: 1, wordBreak: 'break-word' }}>
                     The correct answer was: <strong>{question?.options?.[feedback.correctAnswer]}</strong>
                   </Typography>
                 )}
