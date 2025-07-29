@@ -1,0 +1,38 @@
+[
+  {
+    "ParameterKey": "Environment",
+    "ParameterValue": "prod"
+  },
+  {
+    "ParameterKey": "BedrockRegion",
+    "ParameterValue": "us-west-2"
+  },
+  {
+    "ParameterKey": "DomainName",
+    "ParameterValue": "quizaxis.com"
+  },
+  {
+    "ParameterKey": "UseCustomDomain",
+    "ParameterValue": "true"
+  },
+  {
+    "ParameterKey": "SSLCertificateArn",
+    "ParameterValue": "arn:aws:acm:us-east-1:299335861593:certificate/11a761ce-8108-4a67-a381-84fdeda44b5c"
+  },
+  {
+    "ParameterKey": "HostedZoneId",
+    "ParameterValue": "Z03615254M0R4HDKT91U"
+  },
+  {
+    "ParameterKey": "EnableAPIKey",
+    "ParameterValue": "true"
+  },
+  {
+    "ParameterKey": "RateLimitBurst",
+    "ParameterValue": "100"
+  },
+  {
+    "ParameterKey": "RateLimitRate",
+    "ParameterValue": "50"
+  }
+]

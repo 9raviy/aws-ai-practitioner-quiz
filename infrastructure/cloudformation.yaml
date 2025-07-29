@@ -13,6 +13,47 @@ Parameters:
     Default: 'us-west-2'
     Description: 'AWS region for Bedrock service'
 
+  DomainName:
+    Type: String
+    Default: 'quizaxis.com'
+    Description: 'Custom domain name for the application'
+
+  UseCustomDomain:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: 'Whether to use custom domain name'
+
+  SSLCertificateArn:
+    Type: String
+    Default: ''
+    Description: 'ARN of SSL certificate (required if UseCustomDomain is true)'
+
+  HostedZoneId:
+    Type: String
+    Default: ''
+    Description: 'Route 53 Hosted Zone ID (required if UseCustomDomain is true)'
+
+  EnableAPIKey:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: 'Whether to enable API key authentication'
+
+  RateLimitBurst:
+    Type: Number
+    Default: 100
+    Description: 'API Gateway burst limit'
+
+  RateLimitRate:
+    Type: Number
+    Default: 50
+    Description: 'API Gateway rate limit (requests per second)'
+
+Conditions:
+  UseCustomDomainCondition: !Equals [!Ref UseCustomDomain, 'true']
+  EnableAPIKeyCondition: !Equals [!Ref EnableAPIKey, 'true']
+
 Resources:
   # DynamoDB Table for Quiz Sessions
   QuizSessionsTable:
@@ -156,7 +197,27 @@ Resources:
       - HealthMethodGET
     Properties:
       RestApiId: !Ref QuizAPI
+      Description: !Sub '${Environment} deployment'
+
+  # API Gateway Stage
+  APIStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
       StageName: !Ref Environment
+      RestApiId: !Ref QuizAPI
+      DeploymentId: !Ref APIDeployment
+      MethodSettings:
+        - ResourcePath: '/*'
+          HttpMethod: '*'
+          DataTraceEnabled: false
+          MetricsEnabled: true
+          ThrottlingRateLimit: !Ref RateLimitRate
+          ThrottlingBurstLimit: !Ref RateLimitBurst
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: 'ai-practitioner-quiz'
 
   # API Gateway Resource for Health Check
   HealthResource:
@@ -238,6 +299,190 @@ Resources:
       Principal: apigateway.amazonaws.com
       SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${QuizAPI}/*/GET/health'
 
+  # API Gateway Usage Plan for Rate Limiting
+  APIUsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    DependsOn: APIStage
+    Properties:
+      UsagePlanName: !Sub '${Environment}-quiz-api-usage-plan'
+      Description: 'Usage plan for Quiz API with rate limiting'
+      ApiStages:
+        - ApiId: !Ref QuizAPI
+          Stage: !Ref APIStage
+      Throttle:
+        RateLimit: !Ref RateLimitRate
+        BurstLimit: !Ref RateLimitBurst
+      Quota:
+        Limit: 10000
+        Period: DAY
+
+  # API Key for secured access
+  APIKey:
+    Type: AWS::ApiGateway::ApiKey
+    Condition: EnableAPIKeyCondition
+    Properties:
+      Name: !Sub '${Environment}-quiz-api-key'
+      Description: 'API key for Quiz application'
+      Enabled: true
+
+  # Usage Plan Key to associate API Key with Usage Plan
+  APIUsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Condition: EnableAPIKeyCondition
+    DependsOn: APIUsagePlan
+    Properties:
+      KeyId: !Ref APIKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref APIUsagePlan
+
+  # WAF Web ACL for additional security
+  APIWebACL:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: !Sub '${Environment}-quiz-api-waf'
+      Description: 'WAF for Quiz API Gateway'
+      Scope: REGIONAL
+      DefaultAction:
+        Allow: {}
+      VisibilityConfig:
+        SampledRequestsEnabled: true
+        CloudWatchMetricsEnabled: true
+        MetricName: !Sub '${Environment}-quiz-api-waf'
+      Rules:
+        # Rate limiting rule
+        - Name: RateLimitRule
+          Priority: 1
+          Statement:
+            RateBasedStatement:
+              Limit: 2000
+              AggregateKeyType: IP
+          Action:
+            Block: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: !Sub '${Environment}-quiz-rate-limit'
+        
+        # Geographic restriction (optional - restrict to specific countries)
+        - Name: GeoBlockRule
+          Priority: 2
+          Statement:
+            GeoMatchStatement:
+              CountryCodes:
+                - CN  # Block China
+                - RU  # Block Russia
+                - KP  # Block North Korea
+          Action:
+            Block: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: !Sub '${Environment}-quiz-geo-block'
+
+        # Known bad IPs rule
+        - Name: AWSManagedRulesKnownBadInputsRuleSet
+          Priority: 3
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesKnownBadInputsRuleSet
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: !Sub '${Environment}-quiz-bad-inputs'
+
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: 'ai-practitioner-quiz'
+
+  # Associate WAF with API Gateway
+  APIWebACLAssociation:
+    Type: AWS::WAFv2::WebACLAssociation
+    DependsOn:
+      - APIWebACL
+      - APIStage
+    Properties:
+      ResourceArn: !Sub 'arn:aws:apigateway:${AWS::Region}::/restapis/${QuizAPI}/stages/${APIStage}'
+      WebACLArn: !GetAtt APIWebACL.Arn
+
+  # CloudFront WAF Web ACL
+  CloudFrontWebACL:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: !Sub '${Environment}-quiz-cloudfront-waf'
+      Description: 'WAF for Quiz CloudFront Distribution'
+      Scope: CLOUDFRONT
+      DefaultAction:
+        Allow: {}
+      VisibilityConfig:
+        SampledRequestsEnabled: true
+        CloudWatchMetricsEnabled: true
+        MetricName: !Sub '${Environment}-quiz-cloudfront-waf'
+      Rules:
+        # Rate limiting rule for CloudFront
+        - Name: CloudFrontRateLimitRule
+          Priority: 1
+          Statement:
+            RateBasedStatement:
+              Limit: 1000
+              AggregateKeyType: IP
+          Action:
+            Block: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: !Sub '${Environment}-quiz-cf-rate-limit'
+
+        # AWS Managed Rules - Common Rule Set
+        - Name: AWSManagedRulesCommonRuleSet
+          Priority: 2
+          OverrideAction:
+            None: {}
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesCommonRuleSet
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: !Sub '${Environment}-quiz-cf-common-rules'
+
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Application
+          Value: 'ai-practitioner-quiz'
+
+  # Route 53 Records for main domain
+  MainDomainRoute53Record:
+    Type: AWS::Route53::RecordSet
+    Condition: UseCustomDomainCondition
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt CloudFrontDistribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2  # CloudFront hosted zone ID
+        EvaluateTargetHealth: false
+
+  # Route 53 Record for www subdomain
+  WWWDomainRoute53Record:
+    Type: AWS::Route53::RecordSet
+    Condition: UseCustomDomainCondition
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Sub 'www.${DomainName}'
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt CloudFrontDistribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2  # CloudFront hosted zone ID
+        EvaluateTargetHealth: false
+
   # S3 Bucket for Frontend
   FrontendBucket:
     Type: AWS::S3::Bucket
@@ -271,6 +516,11 @@ Resources:
     Type: AWS::CloudFront::Distribution
     Properties:
       DistributionConfig:
+        Aliases: !If
+          - UseCustomDomainCondition
+          - - !Ref DomainName
+            - !Sub 'www.${DomainName}'
+          - !Ref 'AWS::NoValue'
         Origins:
           - Id: S3Origin
             DomainName: !GetAtt FrontendBucket.RegionalDomainName
@@ -304,6 +554,13 @@ Resources:
             ResponseCode: 200
             ResponsePagePath: /index.html
         PriceClass: PriceClass_100
+        ViewerCertificate: !If
+          - UseCustomDomainCondition
+          - AcmCertificateArn: !Ref SSLCertificateArn
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - CloudFrontDefaultCertificate: true
+        WebACLId: !GetAtt CloudFrontWebACL.Arn
       Tags:
         - Key: Environment
           Value: !Ref Environment
@@ -330,21 +587,42 @@ Resources:
 Outputs:
   ApiUrl:
     Description: 'API Gateway Endpoint URL'
-    Value: !Sub 'https://${QuizAPI}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+    Value: !If
+      - UseCustomDomainCondition
+      - !Sub 'https://api.${DomainName}'
+      - !Sub 'https://${QuizAPI}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
     Export:
       Name: !Sub '${Environment}-quiz-api-endpoint'
 
   APIEndpoint:
     Description: 'API Gateway Endpoint URL (alias)'
-    Value: !Sub 'https://${QuizAPI}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
+    Value: !If
+      - UseCustomDomainCondition
+      - !Sub 'https://api.${DomainName}'
+      - !Sub 'https://${QuizAPI}.execute-api.${AWS::Region}.amazonaws.com/${Environment}'
     Export:
       Name: !Sub '${Environment}-quiz-api-endpoint-alias'
 
   HealthEndpoint:
     Description: 'Health Check Endpoint URL'
-    Value: !Sub 'https://${QuizAPI}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/health'
+    Value: !If
+      - UseCustomDomainCondition
+      - !Sub 'https://api.${DomainName}/health'
+      - !Sub 'https://${QuizAPI}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/health'
     Export:
       Name: !Sub '${Environment}-quiz-health-endpoint'
+
+  APIKey:
+    Description: 'API Key for secured access'
+    Value: !If [EnableAPIKeyCondition, !Ref APIKey, 'Not enabled']
+    Export:
+      Name: !Sub '${Environment}-quiz-api-key'
+
+  CustomDomainName:
+    Description: 'Custom domain name'
+    Value: !If [UseCustomDomainCondition, !Ref DomainName, 'Not configured']
+    Export:
+      Name: !Sub '${Environment}-quiz-domain-name'
 
   DynamoDBTableName:
     Description: 'DynamoDB Table Name'
@@ -378,6 +656,9 @@ Outputs:
 
   WebsiteUrl:
     Description: 'Frontend Website URL'
-    Value: !Sub 'https://${CloudFrontDistribution.DomainName}'
+    Value: !If
+      - UseCustomDomainCondition
+      - !Sub 'https://${DomainName}'
+      - !Sub 'https://${CloudFrontDistribution.DomainName}'
     Export:
       Name: !Sub '${Environment}-quiz-website-url'

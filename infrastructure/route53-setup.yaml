@@ -1,0 +1,74 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Route 53 Hosted Zone setup for quizaxis.com'
+
+Parameters:
+  DomainName:
+    Type: String
+    Default: 'quizaxis.com'
+    Description: 'The domain name to create hosted zone for'
+
+Resources:
+  # Hosted Zone for the domain
+  HostedZone:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      Name: !Ref DomainName
+      HostedZoneConfig:
+        Comment: !Sub 'Hosted zone for ${DomainName} - AWS AI Quiz Application'
+      HostedZoneTags:
+        - Key: Name
+          Value: !Sub '${DomainName}-hosted-zone'
+        - Key: Application
+          Value: 'ai-practitioner-quiz'
+        - Key: Environment
+          Value: 'prod'
+
+  # SSL Certificate for the domain (issued by ACM)
+  SSLCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      SubjectAlternativeNames:
+        - !Sub 'www.${DomainName}'
+        - !Sub 'api.${DomainName}'
+        - !Sub '*.${DomainName}'
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref HostedZone
+        - DomainName: !Sub 'www.${DomainName}'
+          HostedZoneId: !Ref HostedZone
+        - DomainName: !Sub 'api.${DomainName}'
+          HostedZoneId: !Ref HostedZone
+      Tags:
+        - Key: Name
+          Value: !Sub '${DomainName}-certificate'
+        - Key: Application
+          Value: 'ai-practitioner-quiz'
+
+Outputs:
+  HostedZoneId:
+    Description: 'Route 53 Hosted Zone ID'
+    Value: !Ref HostedZone
+    Export:
+      Name: !Sub '${AWS::StackName}-hosted-zone-id'
+
+  NameServers:
+    Description: 'Name servers for the hosted zone (update these in your domain registrar)'
+    Value: !Join
+      - ', '
+      - !GetAtt HostedZone.NameServers
+    Export:
+      Name: !Sub '${AWS::StackName}-name-servers'
+
+  SSLCertificateArn:
+    Description: 'ARN of the SSL certificate'
+    Value: !Ref SSLCertificate
+    Export:
+      Name: !Sub '${AWS::StackName}-ssl-certificate-arn'
+
+  DomainName:
+    Description: 'The domain name'
+    Value: !Ref DomainName
+    Export:
+      Name: !Sub '${AWS::StackName}-domain-name'
