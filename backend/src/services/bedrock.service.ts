@@ -176,12 +176,8 @@ Please respond in this exact JSON format:
   "aiPractitionerDomain": "One of: Machine Learning Fundamentals, AI Services, Responsible AI, or Generative AI"
 }
 
-CRITICAL JSON FORMATTING RULES:
-- The correctAnswer should be the index (0-3) of the correct option in the options array
-- IMPORTANT: Vary the position of the correct answer - don't always put it first! The correct answer can be at any position (0, 1, 2, or 3)
-- In the explanation field, use \\n for line breaks (double backslash n), NOT literal newlines
-- Ensure all JSON string values are properly escaped (use \\" for quotes, \\\\ for backslashes)
-- Do not include any control characters or unescaped special characters in string values`;
+The correctAnswer should be the index (0-3) of the correct option in the options array.
+IMPORTANT: Vary the position of the correct answer - don't always put it first! The correct answer can be at any position (0, 1, 2, or 3).`;
 
     const excludeInstructions =
       request.excludeQuestionIds && request.excludeQuestionIds.length > 0
@@ -224,32 +220,12 @@ CRITICAL JSON FORMATTING RULES:
         jsonPreview: jsonMatch[0].substring(0, 300)
       });
 
-      // Sanitize the JSON string before parsing to handle control characters
-      let jsonText = jsonMatch[0];
-      
-      // Handle problematic control characters but preserve valid JSON escape sequences
-      // Remove actual control characters (not escape sequences)
-      jsonText = jsonText.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, ' ');
-      
-      // Fix common JSON issues without breaking escape sequences
-      jsonText = jsonText.replace(/([^\\])"([^"])/g, '$1\\"$2'); // Fix unescaped quotes within strings
-      jsonText = jsonText.replace(/\n/g, '\\n'); // Convert actual newlines to JSON escape sequences
-      jsonText = jsonText.replace(/\r/g, '\\r'); // Convert actual carriage returns
-      jsonText = jsonText.replace(/\t/g, '\\t'); // Convert actual tabs
-      
-      logger.info("JSON sanitized for parsing", {
-        originalLength: jsonMatch[0].length,
-        sanitizedLength: jsonText.length,
-        sanitizedPreview: jsonText.substring(0, 300)
-      });
-
       let questionData;
       try {
-        questionData = JSON.parse(jsonText);
+        questionData = JSON.parse(jsonMatch[0]);
       } catch (jsonError) {
-        logger.error("Failed to parse sanitized JSON", jsonError, {
-          originalJsonText: jsonMatch[0].substring(0, 1000),
-          sanitizedJsonText: jsonText.substring(0, 1000)
+        logger.error("Failed to parse extracted JSON", jsonError, {
+          jsonText: jsonMatch[0]
         });
         throw new Error(`JSON parsing failed: ${jsonError instanceof Error ? jsonError.message : "Unknown error"}`);
       }
