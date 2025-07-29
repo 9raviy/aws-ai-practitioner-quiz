@@ -305,9 +305,9 @@ const QuizQuestionComponent: React.FC = () => {
   }
 
   return (
-    <Box sx={{ maxWidth: 800, mx: 'auto', mt: 4 }}>
+    <Box sx={{ maxWidth: { xs: '100%', md: 1200 }, mx: 'auto', mt: 4, px: { xs: 1, md: 2 } }}>
       {/* Progress Bar */}
-      <Card sx={{ mb: 3 }}>
+      <Card sx={{ mb: 3, maxWidth: { xs: '100%', md: 1100 }, mx: 'auto' }}>
         <CardContent sx={{ pb: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
             <Typography variant="h6">
@@ -346,8 +346,8 @@ const QuizQuestionComponent: React.FC = () => {
       </Card>
 
       {/* Question Card */}
-      <Card>
-        <CardContent sx={{ p: 4 }}>
+      <Card sx={{ maxWidth: { xs: '100%', md: 1100 }, mx: 'auto' }}>
+        <CardContent sx={{ p: { xs: 2, md: 4 } }}>
           {/* Question Header */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
             <QuestionMark color="primary" />
@@ -357,7 +357,7 @@ const QuizQuestionComponent: React.FC = () => {
           </Box>
 
           {/* Question Text */}
-          <Paper sx={{ p: 3, mb: 4, bgcolor: 'primary.50' }}>
+          <Paper sx={{ p: { xs: 2, md: 3 }, mb: 4, bgcolor: 'primary.50', maxWidth: '100%' }}>
             <Typography variant="h6" sx={{ lineHeight: 1.6 }}>
               {typeof question?.question === 'string' ? question.question : 'Question data unavailable'}
             </Typography>
