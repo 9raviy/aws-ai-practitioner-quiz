@@ -227,14 +227,15 @@ CRITICAL JSON FORMATTING RULES:
       // Sanitize the JSON string before parsing to handle control characters
       let jsonText = jsonMatch[0];
       
-      // Replace unescaped newlines and other control characters
-      jsonText = jsonText.replace(/([^\\])\\n/g, '$1\\\\n'); // Fix unescaped \n
-      jsonText = jsonText.replace(/([^\\])\\r/g, '$1\\\\r'); // Fix unescaped \r
-      jsonText = jsonText.replace(/([^\\])\\t/g, '$1\\\\t'); // Fix unescaped \t
-      jsonText = jsonText.replace(/[\u0000-\u001F\u007F-\u009F]/g, ' '); // Remove other control chars
+      // Handle problematic control characters but preserve valid JSON escape sequences
+      // Remove actual control characters (not escape sequences)
+      jsonText = jsonText.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, ' ');
       
-      // Also handle case where string starts with unescaped newline
-      jsonText = jsonText.replace(/^(.*"[^"]*?)\\n/g, '$1\\\\n');
+      // Fix common JSON issues without breaking escape sequences
+      jsonText = jsonText.replace(/([^\\])"([^"])/g, '$1\\"$2'); // Fix unescaped quotes within strings
+      jsonText = jsonText.replace(/\n/g, '\\n'); // Convert actual newlines to JSON escape sequences
+      jsonText = jsonText.replace(/\r/g, '\\r'); // Convert actual carriage returns
+      jsonText = jsonText.replace(/\t/g, '\\t'); // Convert actual tabs
       
       logger.info("JSON sanitized for parsing", {
         originalLength: jsonMatch[0].length,
