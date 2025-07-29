@@ -305,9 +305,18 @@ const QuizQuestionComponent: React.FC = () => {
   }
 
   return (
-    <Box sx={{ maxWidth: '100%', mx: 'auto', mt: 4, px: { xs: 1, md: 2 } }}>
+    <Box
+      sx={{
+        width: '100vw',
+        minHeight: '100vh',
+        bgcolor: 'background.default',
+        px: { xs: 0, md: 4 },
+        py: { xs: 2, md: 4 },
+        boxSizing: 'border-box',
+      }}
+    >
       {/* Progress Bar */}
-      <Card sx={{ mb: 3, maxWidth: 1400, mx: 'auto' }}>
+      <Card sx={{ mb: 3, maxWidth: 1600, mx: 'auto', borderRadius: 4, boxShadow: 3 }}>
         <CardContent sx={{ pb: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
             <Typography variant="h6">
@@ -345,22 +354,30 @@ const QuizQuestionComponent: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Two-Panel Layout */}
-      <Box sx={{ 
-        display: 'flex', 
-        flexDirection: { xs: 'column', lg: showFeedback ? 'row' : 'column' },
-        gap: 3,
-        maxWidth: 1400,
-        mx: 'auto'
-      }}>
-        
+      {/* Fluidic Two-Panel Layout */}
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', lg: showFeedback ? 'row' : 'column' },
+          gap: 4,
+          maxWidth: 1600,
+          mx: 'auto',
+          width: '100%',
+        }}
+      >
         {/* Left Panel - Question and Options */}
-        <Card sx={{ 
-          flex: showFeedback ? { xs: 1, lg: '1 1 55%' } : 1,
-          maxWidth: { xs: '100%', lg: showFeedback ? 'none' : 900 },
-          mx: showFeedback ? 0 : 'auto'
-        }}>
-          <CardContent sx={{ p: { xs: 2, md: 4 } }}>
+        <Card
+          sx={{
+            flex: showFeedback ? { xs: 1, lg: '1 1 60%' } : 1,
+            width: '100%',
+            minWidth: 0,
+            borderRadius: 4,
+            boxShadow: 2,
+            mx: showFeedback ? 0 : 'auto',
+            bgcolor: 'background.paper',
+          }}
+        >
+          <CardContent sx={{ p: { xs: 2, md: 5 } }}>
             {/* Question Header */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
               <QuestionMark color="primary" />
@@ -441,13 +458,21 @@ const QuizQuestionComponent: React.FC = () => {
 
         {/* Right Panel - Feedback and Explanation (only shown when feedback is available) */}
         {showFeedback && feedback && (
-          <Card sx={{ 
-            flex: { xs: 1, lg: '1 1 45%' },
-            height: 'fit-content',
-            position: { lg: 'sticky' },
-            top: { lg: 24 }
-          }}>
-            <CardContent sx={{ p: { xs: 2, md: 4 } }}>
+          <Card
+            sx={{
+              flex: { xs: 1, lg: '1 1 40%' },
+              width: '100%',
+              minWidth: 0,
+              borderRadius: 4,
+              boxShadow: 2,
+              position: { lg: 'sticky' },
+              top: { lg: 32 },
+              bgcolor: 'background.paper',
+              maxHeight: { lg: 'calc(100vh - 120px)' },
+              overflowY: { lg: 'auto' },
+            }}
+          >
+            <CardContent sx={{ p: { xs: 2, md: 5 } }}>
               <Alert 
                 severity={feedback.isCorrect ? 'success' : 'error'}
                 icon={feedback.isCorrect ? <CheckCircle /> : <Cancel />}

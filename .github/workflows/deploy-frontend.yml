@@ -1,11 +1,12 @@
-name: Deploy Frontend
+name: Deploy Frontend (Manual Only)
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/deploy-frontend.yml'
+  # Automatic deployment disabled - use deploy-complete.yml for full deployments
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - 'frontend/**'
+  #     - '.github/workflows/deploy-frontend.yml'
   workflow_dispatch:
     inputs:
       environment:
