@@ -305,9 +305,9 @@ const QuizQuestionComponent: React.FC = () => {
   }
 
   return (
-    <Box sx={{ maxWidth: { xs: '100%', md: 1200 }, mx: 'auto', mt: 4, px: { xs: 1, md: 2 } }}>
+    <Box sx={{ maxWidth: '100%', mx: 'auto', mt: 4, px: { xs: 1, md: 2 } }}>
       {/* Progress Bar */}
-      <Card sx={{ mb: 3, maxWidth: { xs: '100%', md: 1100 }, mx: 'auto' }}>
+      <Card sx={{ mb: 3, maxWidth: 1400, mx: 'auto' }}>
         <CardContent sx={{ pb: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
             <Typography variant="h6">
@@ -345,65 +345,109 @@ const QuizQuestionComponent: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Question Card */}
-      <Card sx={{ maxWidth: { xs: '100%', md: 1100 }, mx: 'auto' }}>
-        <CardContent sx={{ p: { xs: 2, md: 4 } }}>
-          {/* Question Header */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
-            <QuestionMark color="primary" />
-            <Typography variant="h5" component="h2">
-              Question {currentQuestionNumber}
-            </Typography>
-          </Box>
+      {/* Two-Panel Layout */}
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: { xs: 'column', lg: showFeedback ? 'row' : 'column' },
+        gap: 3,
+        maxWidth: 1400,
+        mx: 'auto'
+      }}>
+        
+        {/* Left Panel - Question and Options */}
+        <Card sx={{ 
+          flex: showFeedback ? { xs: 1, lg: '1 1 55%' } : 1,
+          maxWidth: { xs: '100%', lg: showFeedback ? 'none' : 900 },
+          mx: showFeedback ? 0 : 'auto'
+        }}>
+          <CardContent sx={{ p: { xs: 2, md: 4 } }}>
+            {/* Question Header */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+              <QuestionMark color="primary" />
+              <Typography variant="h5" component="h2">
+                Question {currentQuestionNumber}
+              </Typography>
+            </Box>
 
-          {/* Question Text */}
-          <Paper sx={{ p: { xs: 2, md: 3 }, mb: 4, bgcolor: 'primary.50', maxWidth: '100%' }}>
-            <Typography variant="h6" sx={{ lineHeight: 1.6 }}>
-              {typeof question?.question === 'string' ? question.question : 'Question data unavailable'}
-            </Typography>
-          </Paper>
+            {/* Question Text */}
+            <Paper sx={{ p: { xs: 2, md: 3 }, mb: 4, bgcolor: 'primary.50' }}>
+              <Typography variant="h6" sx={{ lineHeight: 1.6 }}>
+                {typeof question?.question === 'string' ? question.question : 'Question data unavailable'}
+              </Typography>
+            </Paper>
 
-          {/* Answer Options */}
-          <RadioGroup
-            value={selectedOption.toString()}
-            onChange={handleOptionChange}
-            sx={{ mb: 3 }}
-          >
-            {question?.options?.map((option, index) => (
-              <FormControlLabel
-                key={index}
-                value={index.toString()}
-                control={<Radio />}
-                label={
-                  <Typography variant="body1" sx={{ py: 1 }}>
-                    {option}
-                  </Typography>
-                }
-                disabled={showFeedback}
-                sx={{
-                  border: 1,
-                  borderColor: showFeedback ? 
-                    (index === selectedOption ? 
-                      (feedback?.isCorrect ? 'success.main' : 'error.main') : 
-                      'divider') : 
-                    'divider',
-                  borderRadius: 2,
-                  p: 2,
-                  mb: 1,
-                  bgcolor: showFeedback && index === selectedOption ? 
-                    (feedback?.isCorrect ? 'success.50' : 'error.50') : 
-                    'background.paper',
-                  '&:hover': !showFeedback ? { borderColor: 'primary.main' } : {}
-                }}
-              />
-            ))}
-          </RadioGroup>
+            {/* Answer Options */}
+            <RadioGroup
+              value={selectedOption.toString()}
+              onChange={handleOptionChange}
+              sx={{ mb: 3 }}
+            >
+              {question?.options?.map((option, index) => (
+                <FormControlLabel
+                  key={index}
+                  value={index.toString()}
+                  control={<Radio />}
+                  label={
+                    <Typography variant="body1" sx={{ py: 1 }}>
+                      {option}
+                    </Typography>
+                  }
+                  disabled={showFeedback}
+                  sx={{
+                    border: 1,
+                    borderColor: showFeedback ? 
+                      (index === selectedOption ? 
+                        (feedback?.isCorrect ? 'success.main' : 'error.main') : 
+                        (index === feedback?.correctAnswer ? 'success.main' : 'divider')) : 
+                      'divider',
+                    borderRadius: 2,
+                    p: 2,
+                    mb: 1,
+                    bgcolor: showFeedback && index === selectedOption ? 
+                      (feedback?.isCorrect ? 'success.50' : 'error.50') : 
+                      (showFeedback && index === feedback?.correctAnswer ? 'success.100' : 'background.paper'),
+                    '&:hover': !showFeedback ? { borderColor: 'primary.main' } : {}
+                  }}
+                />
+              ))}
+            </RadioGroup>
 
-          {/* Feedback Section */}
-          {showFeedback && feedback && (
-            <Box sx={{ mt: 4 }}>
-              <Divider sx={{ mb: 3 }} />
-              
+            {/* Action Buttons */}
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+              {!showFeedback ? (
+                <Button
+                  variant="contained"
+                  size="large"
+                  onClick={submitAnswer}
+                  disabled={selectedOption === -1 || loading.isLoading}
+                  sx={{ px: 4, py: 2 }}
+                >
+                  Submit Answer
+                </Button>
+              ) : (
+                <Button
+                  variant="contained"
+                  size="large"
+                  onClick={nextQuestion}
+                  endIcon={feedback?.nextQuestion && !feedback.isQuizCompleted ? <NavigateNext /> : <Assessment />}
+                  sx={{ px: 4, py: 2 }}
+                >
+                  {feedback?.nextQuestion && !feedback.isQuizCompleted ? 'Next Question' : 'View Results'}
+                </Button>
+              )}
+            </Box>
+          </CardContent>
+        </Card>
+
+        {/* Right Panel - Feedback and Explanation (only shown when feedback is available) */}
+        {showFeedback && feedback && (
+          <Card sx={{ 
+            flex: { xs: 1, lg: '1 1 45%' },
+            height: 'fit-content',
+            position: { lg: 'sticky' },
+            top: { lg: 24 }
+          }}>
+            <CardContent sx={{ p: { xs: 2, md: 4 } }}>
               <Alert 
                 severity={feedback.isCorrect ? 'success' : 'error'}
                 icon={feedback.isCorrect ? <CheckCircle /> : <Cancel />}
@@ -412,45 +456,27 @@ const QuizQuestionComponent: React.FC = () => {
                 <Typography variant="h6">
                   {feedback.isCorrect ? 'Correct!' : 'Incorrect'}
                 </Typography>
+                {!feedback.isCorrect && feedback.correctAnswer !== undefined && (
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    The correct answer was: <strong>{question?.options?.[feedback.correctAnswer]}</strong>
+                  </Typography>
+                )}
               </Alert>
 
               {feedback.explanation && (
                 <Paper sx={{ p: 3, bgcolor: 'info.50' }}>
-                  <Typography variant="h6" gutterBottom>
-                    Explanation:
+                  <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <QuestionMark color="info" />
+                    Explanation
                   </Typography>
+                  <Divider sx={{ mb: 2 }} />
                   {formatExplanation(feedback.explanation)}
                 </Paper>
               )}
-            </Box>
-          )}
-
-          {/* Action Buttons */}
-          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-            {!showFeedback ? (
-              <Button
-                variant="contained"
-                size="large"
-                onClick={submitAnswer}
-                disabled={selectedOption === -1 || loading.isLoading}
-                sx={{ px: 4, py: 2 }}
-              >
-                Submit Answer
-              </Button>
-            ) : (
-              <Button
-                variant="contained"
-                size="large"
-                onClick={nextQuestion}
-                endIcon={feedback?.nextQuestion && !feedback.isQuizCompleted ? <NavigateNext /> : <Assessment />}
-                sx={{ px: 4, py: 2 }}
-              >
-                {feedback?.nextQuestion && !feedback.isQuizCompleted ? 'Next Question' : 'View Results'}
-              </Button>
-            )}
-          </Box>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        )}
+      </Box>
     </Box>
   );
 };
