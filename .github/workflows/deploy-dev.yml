@@ -1,10 +1,15 @@
 name: Deploy Development Environment
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  # Disabled - use deploy-complete.yml for dev deployments instead
+  # push:
+  #   branches: [ main ]
+  #   paths-ignore:
+  #     - '.github/workflows/deploy-production.yml'
+  #     - 'production/**'
+  # pull_request:
+  #   branches: [ main ]
+  workflow_dispatch:
 
 env:
   AWS_REGION: us-east-1

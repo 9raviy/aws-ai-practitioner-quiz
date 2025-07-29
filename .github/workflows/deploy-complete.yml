@@ -1,8 +1,13 @@
-name: Complete Deployment Pipeline
+name: Deploy to Development
 
 on:
   push:
-    branches: [main]
+    branches: [dev]
+    paths:
+      - 'frontend/**'
+      - 'backend/**'
+      - 'infrastructure/**'
+      - '.github/workflows/deploy-complete.yml'
   workflow_dispatch:
     inputs:
       environment:
@@ -13,7 +18,6 @@ on:
         options:
           - dev
           - staging
-          - prod
 
 env:
   AWS_REGION: us-east-1
