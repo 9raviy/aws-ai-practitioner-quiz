@@ -361,12 +361,9 @@ const QuizQuestionComponent: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Responsive Layout */}
+      {/* Vertical Layout - Single Column */}
       <Box
         sx={{
-          display: 'flex',
-          flexDirection: { xs: 'column', lg: showFeedback ? 'row' : 'column' },
-          gap: { xs: 2, md: 3 },
           maxWidth: { xs: '100%', sm: 600, md: 800, lg: 1000 },
           mx: 'auto',
           width: '100%',
@@ -375,14 +372,11 @@ const QuizQuestionComponent: React.FC = () => {
         {/* Question Panel */}
         <Card
           sx={{
-            flex: showFeedback ? { xs: 1, lg: '1 1 55%' } : 1,
             width: '100%',
-            minWidth: 0,
             borderRadius: 3,
             boxShadow: 2,
             bgcolor: 'background.paper',
-            maxWidth: showFeedback ? 'none' : { xs: '100%', sm: 600, md: 700 },
-            mx: showFeedback ? 0 : 'auto',
+            mb: showFeedback ? 3 : 0,
           }}
         >
           <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
@@ -475,20 +469,14 @@ const QuizQuestionComponent: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Explanation Panel */}
+        {/* Explanation Panel - Stacked Vertically Below Question */}
         {showFeedback && feedback && (
           <Card
             sx={{
-              flex: { xs: 1, lg: '1 1 45%' },
               width: '100%',
-              minWidth: 0,
               borderRadius: 3,
               boxShadow: 2,
-              position: { lg: 'sticky' },
-              top: { lg: 24 },
               bgcolor: 'background.paper',
-              maxHeight: { lg: 'calc(100vh - 100px)' },
-              overflowY: { lg: 'auto' },
             }}
           >
             <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
