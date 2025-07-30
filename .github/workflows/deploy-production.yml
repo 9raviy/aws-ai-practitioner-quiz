@@ -247,7 +247,10 @@ jobs:
             # Get from existing stack
             S3_BUCKET=$(aws cloudformation describe-stacks --stack-name quiz-infrastructure-prod --query "Stacks[0].Outputs[?OutputKey=='S3BucketName'].OutputValue" --output text)
             CLOUDFRONT_ID=$(aws cloudformation describe-stacks --stack-name quiz-infrastructure-prod --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDistributionId'].OutputValue" --output text)
-            API_URL="https://api.${{ env.DOMAIN_NAME }}"
+            
+            # Get actual API Gateway URL since custom domain doesn't exist yet
+            API_ID=$(aws apigateway get-rest-apis --query "items[?name=='prod-quiz-api'].id" --output text)
+            API_URL="https://${API_ID}.execute-api.us-east-1.amazonaws.com/prod"
           fi
           
           echo "s3-bucket=$S3_BUCKET" >> $GITHUB_OUTPUT
