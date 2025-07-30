@@ -260,9 +260,9 @@ jobs:
           npm ci
           
           # Set environment variables for build
-          echo "REACT_APP_API_URL=${{ steps.infrastructure.outputs.api-url }}" > .env.production
-          echo "REACT_APP_ENVIRONMENT=production" >> .env.production
-          echo "REACT_APP_DOMAIN=${{ env.DOMAIN_NAME }}" >> .env.production
+          echo "VITE_API_URL=${{ steps.infrastructure.outputs.api-url }}" > .env.production
+          echo "VITE_ENVIRONMENT=production" >> .env.production
+          echo "VITE_DOMAIN=${{ env.DOMAIN_NAME }}" >> .env.production
           
           npm run build
 
