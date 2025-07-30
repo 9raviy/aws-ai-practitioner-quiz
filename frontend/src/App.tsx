@@ -4,7 +4,7 @@ import { ThemeProvider, createTheme } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import { Container } from "@mui/material";
 
-// CI/CD Pipeline Test - Added for testing production deployment workflow
+// CI/CD Pipeline Test - Fix environment variables (VITE_ prefix for production)
 
 // Import components
 import QuizStart from "./components/QuizStart";
